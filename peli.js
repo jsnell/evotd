@@ -99,12 +99,12 @@ function Game() {
             this.callback = callback;
         }
         if (this.timer) {
-            this.stop();
+            this.pause();
         }
         this.timer = setInterval(this.callback, 50);
     };
 
-    this.stop = function() {
+    this.pause = function() {
         clearInterval(this.timer);
         this.timer = null;
     };
