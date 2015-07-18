@@ -94,7 +94,7 @@ function Game() {
         }
     }
 
-    this.start = function(callback) {
+    this.start = function(callback, interval) {
         if (callback) {
             this.callback = callback;
         }
@@ -664,6 +664,6 @@ function init() {
             game.update();
             game.draw(canvas, ctx);
         };
-        game.start(updateAndDraw);
+        game.start(updateAndDraw, 50);
     });
 }
