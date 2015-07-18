@@ -26,7 +26,7 @@ function Game() {
             this.callback = callback;
         }
         if (this.timer) {
-            stop();
+            this.stop();
         }
         this.timer = setInterval(this.callback, 50);
     };
@@ -43,7 +43,7 @@ function Game() {
             return !(monster.win || monster.dead);
         }));
         this.towers.each(function (tower) {
-            updateTower(tower, game);
+            tower.update(game);
         });
         this.spawnPoints.each(function (sp) {
             updateSpawnPoint(sp, game);
@@ -56,13 +56,14 @@ function Game() {
             drawMonster(canvas, ctx, monster);
         });
         this.towers.each(function (tower) {
-            drawTower(canvas, ctx, tower);
+            tower.draw(canvas, ctx);
         });
     };
 
-    this.addTower = function(c, r) {
-        this.towers.push(new Tower(column(c), row(r)));
-        this.tiles[r][c] = 1;
+    this.addTower = function(c, r, klass) {
+        var tower = new klass(column(c), row(r));
+        this.towers.push(tower);
+        this.tiles[r][c] = tower.background;
         this.spawnPoints.each(function (sp) {
             sp.recomputePath();
         });
@@ -83,6 +84,9 @@ function Game() {
     };
 
     this.monsterDead = function(monster) {
+        if (monster.dead) {
+            return;
+        }
         monster.dead = true;
         this.monsterDeaths++;
         this.money += monster.reward;
@@ -140,7 +144,7 @@ function SpawnPoint(game, c, r, goal) {
                 return;
             }
             var tile = this.game.tiles[r][c];
-            if (tile == 1) {
+            if (tile >= 10) {
                 return;
             }
             var x = r + rows * c;
@@ -172,6 +176,14 @@ function Monster(x, y, path) {
     this.pathIndex = 0;
     this.hp = this.maxHp = 50;
     this.reward = 1;
+
+    this.damage = function(game, damage) {      
+        this.hp -= damage;
+        if (this.hp < 0) {
+            game.monsterDead(this);
+        }
+    };
+
     return this;
 }
 
@@ -179,6 +191,198 @@ function Tower(x, y) {
     this.x = x;
     this.y = y;
     this.angle = 0;
+    this.background = 10;
+    this.range = cellsize * 1.75;
+
+    this.update = function(game) {
+        var tower = this;
+        if (tower.shootAnimation) {
+            tower.shootAnimation -= 0.5;
+            if (tower.shootAnimation < 0) {
+                tower.shootAnimation = 0;
+            }
+        } else {
+            var target = null;
+            var angle;
+            if (tower.target && distance(tower, tower.target) < this.range) {
+                target = tower.target;
+            } else {
+                target = findClosest(tower, game.monsters);
+            }
+            if (target) {
+                angle = angleFrom(tower, target);
+            } else {
+                angle = 0;
+            }
+            var diff = angle - tower.angle;
+            var turnSpeed = 0.2;
+            if (Math.abs(diff) < turnSpeed) {
+                tower.angle = angle;
+                if (!tower.cooldown && target) {
+                    var d = distance(tower, target);
+                    if (d < this.range) {
+                        tower.cooldown = 20;
+                        tower.shootAnimation = 5;
+                        tower.shootingAt = {
+                            x: target.x,
+                            y: target.y,
+                        };
+                        target.damage(game, 15);
+                    }
+                }
+            } else {
+                var direction = (normalizeAngle(diff) < Math.PI ?
+                                 turnSpeed : -turnSpeed);
+                tower.angle = normalizeAngle(tower.angle + direction);
+            }
+        }
+
+        tower.cooldown -= 1;
+        if (tower.cooldown < 0) {
+            tower.cooldown = 0;
+        }
+    }
+
+    this.draw = function(canvas, ctx) {
+        var tower = this;
+        // ctx.save();
+        // var x = tower.x - tower.x % 10 - 10;
+        // var y = tower.y - tower.y % 10 - 10;
+        // ctx.fillStyle="lightgreen";
+        // ctx.fillRect(x, y, 20, 20);
+        // ctx.restore();
+
+        ctx.save();
+        if (tower.shootAnimation) {
+            ctx.beginPath();
+            ctx.moveTo(tower.x, tower.y);
+            ctx.lineTo(tower.shootingAt.x, tower.shootingAt.y);
+            ctx.lineWidth = tower.shootAnimation;
+            ctx.strokeStyle = "red";
+            ctx.stroke();
+        }
+
+        ctx.restore();
+
+        ctx.save();
+
+        ctx.beginPath();
+        ctx.translate(tower.x, tower.y);
+        ctx.rotate(tower.angle);
+        ctx.arc(0, 0, halfcell * 0.9, 0, 2*Math.PI);
+        ctx.fillStyle = "darkgray";
+        ctx.strokeStyle = "black";
+        ctx.lineWidth = 2;
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(0, halfcell * 1.5);
+        ctx.lineWidth = 5;
+        ctx.stroke();
+
+        ctx.restore();
+    }
+    
+    return this;
+}
+
+function LightningTower(x, y) {
+    this.x = x;
+    this.y = y;
+    this.angle = 0;
+    this.shootAnimation = 0;
+    this.idleAnimation = 0;
+    this.background = 11;
+    this.range = cellsize * 2;
+
+    this.update = function(game) {
+        var tower = this;
+        tower.angle = normalizeAngle(tower.angle + 0.3);    
+        if (tower.shootAnimation) {
+            tower.shootAnimation -= 1;
+            if (tower.shootAnimation == 1) {
+                game.monsters.each(function (monster) {
+                    var d = distance(tower, monster);
+                    if (d <= tower.range) {
+                        monster.damage(game, 100);
+                    }
+                });
+            }
+            return;
+        }
+        if (tower.cooldown) {
+            tower.cooldown -= 1;
+            return;
+        }
+
+        var target = findClosest(tower, game.monsters);
+        if (target && distance(tower, target) < tower.range) {
+            tower.shootAnimation = 5;
+            tower.cooldown = 20;
+            tower.idleAnimation = 0;
+        } else {
+            if (!tower.idleAnimation) {
+                tower.idleAnimation = 10;
+            } else {
+                tower.idleAnimation -= 1;
+            }
+        }
+    }
+
+    this.draw = function(canvas, ctx) {
+        var tower = this;
+        ctx.save();
+        ctx.translate(tower.x, tower.y);
+
+        ctx.beginPath();
+        ctx.rotate(tower.angle);
+        ctx.arc(0, 0, halfcell * 0.9, 0, 2*Math.PI);
+        ctx.fillStyle = "orange";
+        ctx.strokeStyle = "black";
+        ctx.lineWidth = 2;
+        ctx.fill();
+        ctx.stroke();
+        
+        ctx.beginPath();
+        ctx.arc(0, 0, halfcell * 0.5, 0, 2*Math.PI);
+        ctx.fillStyle = "black";
+        ctx.lineWidth = 1;
+        ctx.fill();
+
+        ctx.save();
+        for (var i = 0; i < 3; ++i) {
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(0, halfcell * 0.75);
+            ctx.rotate(Math.PI * 2 / 3);
+            ctx.lineWidth = 5;
+            ctx.stroke();
+        }
+        ctx.restore();
+        
+        ctx.beginPath();
+        
+        if (tower.shootAnimation) {
+            var r = cellsize +
+                (tower.range - cellsize) * (5 - tower.shootAnimation) / 5;
+            ctx.arc(0, 0, r, 0, 2*Math.PI);
+        } else if (tower.idleAnimation) {
+            ctx.arc(0, 0, (halfcell - tower.idleAnimation) / 2, 0, 2*Math.PI);
+        }
+
+        ctx.strokeStyle = "steelblue";
+        ctx.lineWidth = 4;
+        ctx.stroke();
+
+        ctx.strokeStyle = "white";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        ctx.restore();
+    }
+
     return this;
 }
 
@@ -189,9 +393,10 @@ function drawMap(canvas, ctx) {
     for (var r = 0; r < rows; ++r) {
         for (var c = 0; c < cols; ++c) {
             var colors = { 0: "darkgreen",
-                           1: "yellow",
                            2: "red",
-                           3: "lightblue"
+                           3: "lightblue",
+                           10: "yellow",
+                           11: "lightgray"
                          }
             ctx.fillStyle=colors[game.tiles[r][c]];
             ctx.fillRect(c * cellsize - halfcell, r * cellsize - halfcell,
@@ -208,7 +413,11 @@ function drawMonster(canvas, ctx, monster) {
     ctx.beginPath();
     ctx.translate(monster.x, monster.y);
     ctx.arc(0, 0, halfcell * 0.9 - 2, 0, 2*Math.PI);
-    ctx.fillStyle = "pink";
+    if (monster.dead) {
+        ctx.fillStyle = "red";
+    } else {
+        ctx.fillStyle = "pink";
+    }
     ctx.strokeStyle = "white";
     ctx.lineWidth = 2;
     ctx.fill();
@@ -262,47 +471,6 @@ function updateMonster(monster, game) {
     }
 }
 
-function drawTower(canvas, ctx, tower) {
-    // ctx.save();
-    // var x = tower.x - tower.x % 10 - 10;
-    // var y = tower.y - tower.y % 10 - 10;
-    // ctx.fillStyle="lightgreen";
-    // ctx.fillRect(x, y, 20, 20);
-    // ctx.restore();
-
-    ctx.save();
-    if (tower.shootAnimation) {
-        ctx.beginPath();
-        ctx.moveTo(tower.x, tower.y);
-        ctx.lineTo(tower.shootingAt.x, tower.shootingAt.y);
-        ctx.lineWidth = tower.shootAnimation;
-        ctx.strokeStyle = "red";
-        ctx.stroke();
-    }
-
-    ctx.restore();
-
-    ctx.save();
-
-    ctx.beginPath();
-    ctx.translate(tower.x, tower.y);
-    ctx.rotate(tower.angle);
-    ctx.arc(0, 0, halfcell * 0.9, 0, 2*Math.PI);
-    ctx.fillStyle = "darkgray";
-    ctx.strokeStyle = "black";
-    ctx.lineWidth = 2;
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    ctx.lineTo(0, halfcell * 1.5);
-    ctx.lineWidth = 5;
-    ctx.stroke();
-
-    ctx.restore();
-}
-
 function distance(a, b) {
     var xd = a.x - b.x;
     var yd = a.y - b.y;
@@ -339,57 +507,6 @@ function normalizeAngle(angle) {
     return angle;
 }
 
-function updateTower(tower, game) {
-    if (tower.shootAnimation) {
-        tower.shootAnimation -= 0.5;
-        if (tower.shootAnimation < 0) {
-            tower.shootAnimation = 0;
-        }
-    } else {
-        var target = null;
-        var angle;
-        if (tower.target && distance(tower, tower.target) < 40) {
-            target = tower.target;
-        } else {
-            target = findClosest(tower, game.monsters);
-        }
-        if (target) {
-            angle = angleFrom(tower, target);
-        } else {
-            angle = 0;
-        }
-        var diff = angle - tower.angle;
-        var turnSpeed = 0.2;
-        if (Math.abs(diff) < turnSpeed) {
-            tower.angle = angle;
-            if (!tower.cooldown && target) {
-                var d = distance(tower, target);
-                if (d < cellsize * 2.5) {
-                    tower.cooldown = 20;
-                    tower.shootAnimation = 5;
-                    tower.shootingAt = {
-                        x: target.x,
-                        y: target.y,
-                    };
-                    target.hp -= 15;
-                    if (target.hp < 0) {
-                        game.monsterDead(target);
-                    }
-                }
-            }
-        } else {
-            var direction = (normalizeAngle(diff) < Math.PI ?
-                             turnSpeed : -turnSpeed);
-            tower.angle = normalizeAngle(tower.angle + direction);
-        }
-    }
-
-    tower.cooldown -= 1;
-    if (tower.cooldown < 0) {
-        tower.cooldown = 0;
-    }
-}
-
 function updateSpawnPoint(sp, game) {
     if (sp.cooldown) {
         sp.cooldown--;
@@ -421,13 +538,14 @@ function init() {
     game.addSpawnPoint(0, 4, [19, 7]);
     game.addSpawnPoint(10, 0, [10, 11]);
 
-    game.addTower(5, 3);
-    game.addTower(4, 4);
-    game.addTower(4, 5);
-    game.addTower(5, 6);
-    game.addTower(7, 7);
-    game.addTower(7, 8);
-    game.addTower(10, 6);
+    game.addTower(5, 3, Tower);
+    game.addTower(4, 4, Tower);
+    game.addTower(4, 5, Tower);
+    game.addTower(5, 6, Tower);
+    game.addTower(7, 7, Tower);
+    game.addTower(7, 8, Tower);
+    game.addTower(10, 6, Tower);
+    game.addTower(8, 6, LightningTower);
 
     this.game.spawnPoints.each(function (x) {
         x.spawn();
