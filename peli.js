@@ -3,6 +3,11 @@ var halfcell = cellsize / 2;
 var rows = 12;
 var cols = 20;
 
+var waves = [
+    [ { source: 0, type: Walker, count: 3, interval: 100 } ],
+    [ { source: 2, type: Walker, count: 3, interval: 100 } ],
+];
+
 function Plan(game) {
     this.game = game
     this.commands = [];
@@ -85,7 +90,8 @@ function Game() {
     this.monsterWins = 0;
     this.money = 10;
     this.callback = null;
-    this.tryExecute = true;
+    this.waveIndex = 0;
+    this.wave = null;
 
     for (var r = 0; r < rows; r++) {
         this.tiles[r] = {};
@@ -101,8 +107,27 @@ function Game() {
         if (this.timer) {
             this.pause();
         }
-        this.timer = setInterval(this.callback, 50);
+        this.timer = setInterval(this.callback, interval);
+        if (!this.wave) {
+            this.newWave();
+        }
     };
+
+    this.newWave = function() {
+        while (this.plan.maybeExecuteNext()) {
+            // Execute stuff.
+        }
+        var wave = waves[this.waveIndex++ % waves.length];
+        this.wave = wave;
+        this.spawnPoints.each(function (sp, index) {
+            console.assert(sp.state == 2);
+            _(wave).each(function(wave_sp) {
+                if (index == wave_sp.source) {
+                    sp.newWave(wave_sp);
+                }
+            });
+        });
+    }
 
     this.pause = function() {
         clearInterval(this.timer);
@@ -111,12 +136,6 @@ function Game() {
     
     this.update = function() {
         var game = this;
-        if (this.tryExecute) {
-            // Commands exexuted as side effect of condition.
-            while (this.plan.maybeExecuteNext()) {
-                this.tryExecute = false;
-            }
-        }
         this.monsters = _(this.monsters.filter(function (monster) {
             updateMonster(monster, game);
             return !(monster.win || monster.dead);
@@ -124,9 +143,16 @@ function Game() {
         this.towers.each(function (tower) {
             tower.update(game);
         });
+        var wave_done = this.monsters.size() == 0;
         this.spawnPoints.each(function (sp) {
-            updateSpawnPoint(sp, game);
+            sp.update();
+            if (sp.state != 2) {
+                wave_done = false;
+            }
         });
+        if (wave_done) {
+            this.newWave();
+        }
     };
 
     this.draw = function (canvas, ctx) {
@@ -191,12 +217,13 @@ function Game() {
         this.monsterDeaths++;
         this.money += monster.reward;
         this.updateStatus();
-        this.tryExecute = true;
     };
 
     this.updateStatus = function () {
-        var text = this.monsterDeaths + " / " + this.monsterWins + " / " +
-            "$" + this.money;
+        var text = this.monsterDeaths + " dead / " +
+            this.monsterWins + " through / " +
+            "$" + this.money + " / wave " +
+            this.waveIndex;
         $('#status').each(function(index, elem) {
             elem.innerText = text;
         });
@@ -210,9 +237,46 @@ function SpawnPoint(game, c, r, goal) {
     this.x = column(c);
     this.y = row(r);
     this.goal = goal;
+    // No wave set yet.
+    this.state = 2;
+    this.wave = null;
+    this.cooldown = 0;
+    this.generated = 0;
 
-    this.spawn = function() {
-        this.game.monsters.push(new Monster(this.x, this.y, this.path));
+    this.newWave = function(wave) {
+        this.state = 0;
+        this.wave = wave;
+        this.cooldown = wave.delay || 1;
+        this.generated = 0;
+    }
+    
+    this.update = function() {
+        switch (this.state) {
+        case 0:
+            // Initial delay
+            if (--this.cooldown < 0) {
+                this.state = 1;
+                // Don't reset cooldown.
+            }
+            break;
+        case 1:
+            // Generating
+            if (--this.cooldown < 0) {
+                var waveFactor = 1 + this.game.waveIndex / 10;
+                this.game.monsters.push(new this.wave.type(this.x, this.y,
+                                                           this.path,
+                                                           waveFactor));
+                if (++this.generated >= this.wave.count) {
+                    this.state = 2;
+                } else {
+                    this.cooldown = this.wave.interval;
+                }
+            }
+            break;
+        case 2:
+            // Done
+            break;
+        };
     }
 
     this.recomputePath = function() {
@@ -272,13 +336,10 @@ function SpawnPoint(game, c, r, goal) {
 function Monster(x, y, path) {
     this.x = x;
     this.y = y;
-    this.speed = 2.5 + Math.random() * 5;
     this.path = path;
     this.pathIndex = 0;
-    this.hp = this.maxHp = 50;
-    this.reward = 1;
 
-    this.damage = function(game, damage) {      
+    this.damage = function(game, damage) {
         this.hp -= damage;
         if (this.hp < 0) {
             game.monsterDead(this);
@@ -286,6 +347,14 @@ function Monster(x, y, path) {
     };
 
     return this;
+}
+
+function Walker(x, y, path, waveFactor) {
+    Monster.call(this, x, y, path);
+
+    this.hp = this.maxHp = 50 * waveFactor;
+    this.reward = 1;
+    this.speed = 3;
 }
 
 function GunTower(x, y) {
@@ -610,15 +679,6 @@ function normalizeAngle(angle) {
     return angle;
 }
 
-function updateSpawnPoint(sp, game) {
-    if (sp.cooldown) {
-        sp.cooldown--;
-    } else {
-        sp.spawn();
-        sp.cooldown = 20;
-    }
-}
-
 function as_row(x) {
     return Math.floor(x / cellsize);
 }
@@ -638,21 +698,25 @@ function column(c) {
 var game;
 function init() {
     game = new Game();
+    // Define multiple spawning points in the same location so that we can
+    // generate multiple kinds of enemies / timings from a single location
+    // in a single wave.
     game.addSpawnPoint(0, 4, [19, 7]);
+    game.addSpawnPoint(0, 4, [19, 7]);
+    game.addSpawnPoint(10, 0, [10, 11]);
     game.addSpawnPoint(10, 0, [10, 11]);
 
     game.plan.addCommand('build gun 8 4');
     game.plan.addCommand('build pulse 8 4');
     game.plan.addCommand('build gun 10 5');
-    game.plan.addCommand('build gun 5 6');
-    game.plan.addCommand('build gun 7 7');
-    game.plan.addCommand('build gun 7 8');
     game.plan.addCommand('build gun 10 6');
-    game.plan.addCommand('build pulse 8 6');
-
-    this.game.spawnPoints.each(function (x) {
-        x.spawn();
-    });
+    game.plan.addCommand('build gun 10 3');
+    game.plan.addCommand('build gun 10 4');
+    game.plan.addCommand('build gun 8 7');
+    game.plan.addCommand('build gun 8 8');
+    game.plan.addCommand('build gun 9 9');
+    game.plan.addCommand('build gun 8 6');
+    game.plan.addCommand('build pulse 10 7');
 
     $('#main').each(function (index, canvas) {
         if (!canvas.getContext) {
