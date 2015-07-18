@@ -2,18 +2,19 @@
   <script src="jquery-2.1.4.min.js"></script>
   <script src="underscore-min.js"></script>
   <script src="peli.js"></script>
+  <link rel="stylesheet" type="text/css" href="style.css"> 
 </head>
 <body onload='init()'>
   <div>Status <span id="status"></span></div>
   <div id="main-container">
     <canvas id="main" width=800 height=480>
     </canvas>
-    <textarea id=plan rows=30 cols=30></textarea>
-    <button onclick="game.updatePlan($('#plan'));">Update</button>
+    <ul id=plan style="width:250; height:480; border-style: solid; display: inline-block; vertical-align: top"></ul>
+    <button onclick="game.plan.maybeExecuteNext();">Update</button>
   </div>
   <div>
     <button onclick="game.stop();">Stop</button>
     <button onclick="game.start();">Start</button>
-    <button onclick="game.stop(); init()">Reset</button>
+    <button onclick="game.stop(); init();">Reset</button>
   </div>
 </body>

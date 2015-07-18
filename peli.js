@@ -3,7 +3,79 @@ var halfcell = cellsize / 2;
 var rows = 12;
 var cols = 20;
 
+function Plan(game) {
+    this.game = game
+    this.commands = [];
+    this.index = 0;
+
+    this.addCommand = function(command) {
+        var fun = this.parse(command);
+        this.commands.push({ command: command,
+                             fun: fun,
+                             done: false,
+                             skipped: false });
+    };
+
+    this.parse = function(command) {
+        var tokens = command.split(/\s+/);
+        var cmd = tokens.shift();
+        if (cmd == 'build') {
+            var typestr = tokens.shift();
+            var type;
+            switch (typestr) {
+            case 'gun':
+                type = GunTower;
+                break;
+            case 'pulse':
+                type = PulseTower;
+                break;
+            };
+            var c = parseInt(tokens.shift());
+            var r = parseInt(tokens.shift());
+            return function(game) { return game.addTower(c, r, type); }
+        }
+        throw "Unknown command " + cmd;
+    };
+    
+    this.maybeExecuteNext = function() {
+        if (this.index >= this.commands.length) {
+            return;
+        }
+        try {
+            if (!this.commands[this.index].fun(this.game)) {
+                return false;
+            }
+            this.commands[this.index].done = true;
+        } catch (e) {            
+            this.commands[this.index].skipped = true;
+            console.log(e);
+        }
+        this.index++;
+        return true;
+    };
+
+    this.draw = function() {
+        var elem = $('#plan');
+        elem.text('');
+        var currentIndex = this.index;
+        _(this.commands).each(function (command, index) {
+            var style = 'cmd';
+            if (command.done) {
+                style = 'cmd-done';
+            } else if (command.skipped) {
+                style = 'cmd-skipped';
+            } else if (index == currentIndex) {
+                style = 'cmd-current'; 
+           }
+            elem.append('<li class=' + style + '> ' + command.command);
+        });
+    };
+    
+    return this;
+}
+
 function Game() {
+    this.plan = new Plan(this);
     this.monsters = _([]);
     this.towers = _([]);
     this.spawnPoints = _([]);
@@ -13,6 +85,7 @@ function Game() {
     this.monsterWins = 0;
     this.money = 10;
     this.callback = null;
+    this.tryExecute = true;
 
     for (var r = 0; r < rows; r++) {
         this.tiles[r] = {};
@@ -38,6 +111,12 @@ function Game() {
     
     this.update = function() {
         var game = this;
+        if (this.tryExecute) {
+            // Commands exexuted as side effect of condition.
+            while (this.plan.maybeExecuteNext()) {
+                this.tryExecute = false;
+            }
+        }
         this.monsters = _(this.monsters.filter(function (monster) {
             updateMonster(monster, game);
             return !(monster.win || monster.dead);
@@ -51,6 +130,7 @@ function Game() {
     };
 
     this.draw = function (canvas, ctx) {
+        this.plan.draw();
         drawMap(canvas, ctx);
         this.monsters.each(function (monster) {
             drawMonster(canvas, ctx, monster);
@@ -61,12 +141,31 @@ function Game() {
     };
 
     this.addTower = function(c, r, klass) {
+        if (this.tiles[r][c] != 0) {
+            throw "Tile " + r + " " + c + " blocked";
+        }
         var tower = new klass(column(c), row(r));
-        this.towers.push(tower);
+        if (tower.cost > this.money) {
+            return false;
+        }
         this.tiles[r][c] = tower.background;
-        this.spawnPoints.each(function (sp) {
-            sp.recomputePath();
-        });
+        try {
+            this.spawnPoints.each(function (sp) {
+                sp.recomputePath();
+            });
+        } catch (e) {
+            // Undo blocking this tile
+            this.tiles[r][c] = 0;
+            // Redo the paths
+            this.spawnPoints.each(function (sp) {
+                sp.recomputePath();
+            });
+            throw e;
+        }
+        this.money -= tower.cost;
+        this.towers.push(tower);
+
+        return true;   
     }
 
     this.addSpawnPoint = function(c, r, goal) {
@@ -74,6 +173,7 @@ function Game() {
         this.spawnPoints.push(sp);
         this.tiles[r][c] = 3;
         this.tiles[goal[1]][goal[0]] = 2;
+        sp.recomputePath();
         return sp;
     };
 
@@ -90,7 +190,8 @@ function Game() {
         monster.dead = true;
         this.monsterDeaths++;
         this.money += monster.reward;
-        this.updateStatus();        
+        this.updateStatus();
+        this.tryExecute = true;
     };
 
     this.updateStatus = function () {
@@ -187,12 +288,13 @@ function Monster(x, y, path) {
     return this;
 }
 
-function Tower(x, y) {
+function GunTower(x, y) {
     this.x = x;
     this.y = y;
     this.angle = 0;
     this.background = 10;
     this.range = cellsize * 1.75;
+    this.cost = 5;
 
     this.update = function(game) {
         var tower = this;
@@ -288,7 +390,7 @@ function Tower(x, y) {
     return this;
 }
 
-function LightningTower(x, y) {
+function PulseTower(x, y) {
     this.x = x;
     this.y = y;
     this.angle = 0;
@@ -296,6 +398,7 @@ function LightningTower(x, y) {
     this.idleAnimation = 0;
     this.background = 11;
     this.range = cellsize * 2;
+    this.cost = 80;
 
     this.update = function(game) {
         var tower = this;
@@ -538,14 +641,14 @@ function init() {
     game.addSpawnPoint(0, 4, [19, 7]);
     game.addSpawnPoint(10, 0, [10, 11]);
 
-    game.addTower(5, 3, Tower);
-    game.addTower(4, 4, Tower);
-    game.addTower(4, 5, Tower);
-    game.addTower(5, 6, Tower);
-    game.addTower(7, 7, Tower);
-    game.addTower(7, 8, Tower);
-    game.addTower(10, 6, Tower);
-    game.addTower(8, 6, LightningTower);
+    game.plan.addCommand('build gun 8 4');
+    game.plan.addCommand('build pulse 8 4');
+    game.plan.addCommand('build gun 10 5');
+    game.plan.addCommand('build gun 5 6');
+    game.plan.addCommand('build gun 7 7');
+    game.plan.addCommand('build gun 7 8');
+    game.plan.addCommand('build gun 10 6');
+    game.plan.addCommand('build pulse 8 6');
 
     this.game.spawnPoints.each(function (x) {
         x.spawn();
