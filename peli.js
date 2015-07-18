@@ -12,6 +12,7 @@ function Game() {
     this.monsterDeaths = 0;
     this.monsterWins = 0;
     this.money = 10;
+    this.callback = null;
 
     for (var r = 0; r < rows; r++) {
         this.tiles[r] = {};
@@ -20,6 +21,21 @@ function Game() {
         }
     }
 
+    this.start = function(callback) {
+        if (callback) {
+            this.callback = callback;
+        }
+        if (this.timer) {
+            stop();
+        }
+        this.timer = setInterval(this.callback, 50);
+    };
+
+    this.stop = function() {
+        clearInterval(this.timer);
+        this.timer = null;
+    };
+    
     this.update = function() {
         var game = this;
         this.monsters = _(this.monsters.filter(function (monster) {
@@ -28,6 +44,9 @@ function Game() {
         }));
         this.towers.each(function (tower) {
             updateTower(tower, game);
+        });
+        this.spawnPoints.each(function (sp) {
+            updateSpawnPoint(sp, game);
         });
     };
 
@@ -371,6 +390,15 @@ function updateTower(tower, game) {
     }
 }
 
+function updateSpawnPoint(sp, game) {
+    if (sp.cooldown) {
+        sp.cooldown--;
+    } else {
+        sp.spawn();
+        sp.cooldown = 20;
+    }
+}
+
 function as_row(x) {
     return Math.floor(x / cellsize);
 }
@@ -387,8 +415,9 @@ function column(c) {
     return c * cellsize;
 }
 
-var game = new Game();
+var game;
 function init() {
+    game = new Game();
     game.addSpawnPoint(0, 4, [19, 7]);
     game.addSpawnPoint(10, 0, [10, 11]);
 
@@ -403,11 +432,6 @@ function init() {
     this.game.spawnPoints.each(function (x) {
         x.spawn();
     });
-    setInterval(function () {
-        this.game.spawnPoints.each(function (x) {
-            x.spawn();
-        });
-    }, 1000);
 
     $('#main').each(function (index, canvas) {
         if (!canvas.getContext) {
@@ -419,8 +443,6 @@ function init() {
             game.update();
             game.draw(canvas, ctx);
         };
-        updateAndDraw();
-        game.updateStatus();
-        setInterval(updateAndDraw, 50);
+        game.start(updateAndDraw);
     });
 }

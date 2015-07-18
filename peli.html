@@ -6,7 +6,12 @@
 <body onload='init()'>
   <div>Status <span id="status"></span></div>
   <div id="main-container">
-    <canvas id="main" width=800 height=600>
+    <canvas id="main" width=800 height=480>
     </canvas>
+  </div>
+  <div>
+    <button onclick="game.stop();">Stop</button>
+    <button onclick="game.start();">Start</button>
+    <button onclick="game.stop(); init()">Reset</button>
   </div>
 </body>
