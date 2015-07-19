@@ -38,6 +38,9 @@ function Plan(game) {
             case 'gun':
                 type = GunTower;
                 break;
+            case 'slow':
+                type = SlowTower;
+                break;
             case 'pulse':
                 type = PulseTower;
                 break;
@@ -404,7 +407,9 @@ function Walker(x, y, path, waveFactor) {
         } else if (monster.damageAnimation) {
             ctx.fillStyle = "lightgray";
             --monster.damageAnimation;
-        }else {
+        } else if (monster.slowdown) {
+            ctx.fillStyle = "lightblue";
+        } else {
             ctx.fillStyle = "pink";
         } 
         ctx.strokeStyle = "white";
@@ -456,6 +461,8 @@ function BigWalker(x, y, path, waveFactor) {
         } else if (monster.damageAnimation) {
             ctx.fillStyle = "lightgray";
             --monster.damageAnimation;
+        } else if (monster.slowdown) {
+            ctx.fillStyle = "lightblue";
         } else {
             ctx.fillStyle = "pink";
         }
@@ -580,6 +587,111 @@ function GunTower(x, y) {
     return this;
 }
 
+function SlowTower(x, y) {
+    this.x = x;
+    this.y = y;
+    this.angle = 0;
+    this.background = 12;
+    this.range = cellsize * 1.75;
+    this.cost = 10;
+
+    this.update = function(game) {
+        var tower = this;
+        if (tower.shootAnimation) {
+            tower.shootAnimation -= 0.5;
+            if (tower.shootAnimation < 0) {
+                tower.shootAnimation = 0;
+            }
+        } else {
+            var target = null;
+            var angle;
+            if (tower.target && distance(tower, tower.target) < this.range) {
+                target = tower.target;
+            } else {
+                target = findClosest(tower, game.monsters);
+            }
+            if (target) {
+                angle = angleFrom(tower, target);
+            } else {
+                angle = 0;
+            }
+            var diff = angle - tower.angle;
+            var turnSpeed = 0.1;
+            if (Math.abs(diff) < turnSpeed) {
+                tower.angle = angle;
+                if (!tower.cooldown && target) {
+                    var d = distance(tower, target);
+                    if (d < this.range) {
+                        tower.cooldown = 20;
+                        tower.shootAnimation = 5;
+                        tower.shootingAt = {
+                            x: target.x,
+                            y: target.y,
+                        };
+                        target.slowdown = 30;
+                    }
+                }
+            } else {
+                var direction = (normalizeAngle(diff) < Math.PI ?
+                                 turnSpeed : -turnSpeed);
+                tower.angle = normalizeAngle(tower.angle + direction);
+            }
+        }
+
+        tower.cooldown -= 1;
+        if (tower.cooldown < 0) {
+            tower.cooldown = 0;
+        }
+    }
+
+    this.draw = function(canvas, ctx) {
+        var tower = this;
+        // ctx.save();
+        // var x = tower.x - tower.x % 10 - 10;
+        // var y = tower.y - tower.y % 10 - 10;
+        // ctx.fillStyle="lightgreen";
+        // ctx.fillRect(x, y, 20, 20);
+        // ctx.restore();
+
+        ctx.save();
+        if (tower.shootAnimation) {
+            ctx.beginPath();
+            ctx.moveTo(tower.x, tower.y);
+            ctx.lineTo(tower.shootingAt.x, tower.shootingAt.y);
+            ctx.lineWidth = tower.shootAnimation * 5;
+            ctx.strokeStyle = "lightblue";
+            ctx.stroke();
+        }
+
+        ctx.restore();
+
+        ctx.save();
+
+        ctx.beginPath();
+        ctx.translate(tower.x, tower.y);
+        ctx.rotate(tower.angle);
+        ctx.arc(0, 0, halfcell * 0.9, 0, 2*Math.PI);
+        ctx.fillStyle = "darkgray";
+        ctx.strokeStyle = "black";
+        ctx.lineWidth = 2;
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(halfcell * 0.1, 0);
+        ctx.lineTo(halfcell * 0.4, halfcell * 1.2);
+        ctx.lineTo(halfcell * -0.4, halfcell * 1.2);
+        ctx.lineTo(halfcell * -0.1, 0);
+        ctx.fillStyle = "black";
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.restore();
+    }
+    
+    return this;
+}
+
 function PulseTower(x, y) {
     this.x = x;
     this.y = y;
@@ -689,7 +801,8 @@ function drawMap(canvas, ctx) {
                            2: "red",
                            3: "lightblue",
                            10: "yellow",
-                           11: "lightgray"
+                           11: "lightgray",
+                           12: "olive",
                          }
             ctx.fillStyle=colors[game.tiles[r][c]];
             ctx.fillRect(c * cellsize - halfcell, r * cellsize - halfcell,
@@ -714,6 +827,10 @@ function updateMonster(monster, game) {
 
     var target = monster.path[monster.pathIndex];
     var speed = monster.speed;
+    if (monster.slowdown) {
+        speed *= 0.5;
+        monster.slowdown--;
+    }
     var xd = clamp(target[0] - monster.x, -speed, speed);
     var yd = clamp(target[1] - monster.y, -speed, speed);
     monster.x += xd;
@@ -820,7 +937,7 @@ function init(initialPlan) {
         game.plan.addCommand('build gun 8 4');
         game.plan.addCommand('build pulse 8 4');
         game.plan.addCommand('build gun 10 5');
-        game.plan.addCommand('build gun 10 6');
+        game.plan.addCommand('build slow 10 6');
         game.plan.addCommand('build gun 10 3');
         game.plan.addCommand('build gun 10 4');
         game.plan.addCommand('build gun 8 7');
