@@ -956,10 +956,17 @@ function init(initialPlan) {
         }
         var ctx = canvas.getContext("2d");
 
+        cellsize = Math.floor(Math.min(canvas.width / cols,
+                                       canvas.height / rows));
+        halfcell = cellsize / 2;
+
         function updateAndDraw() {
             _(speed).times(function() { game.update() });
             // game.update();
+            ctx.save();
+            ctx.translate(halfcell, halfcell);
             game.draw(canvas, ctx);
+            ctx.restore();
         };
         game.init(updateAndDraw);
         game.start(50);
