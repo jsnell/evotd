@@ -6,6 +6,8 @@ var cols = 20;
 var waves = [
     [ { source: 0, type: Walker, count: 3, interval: 100 } ],
     [ { source: 2, type: Walker, count: 3, interval: 100 } ],
+    [ { source: 0, type: BigWalker, count: 2, interval: 200 } ],
+    [ { source: 2, type: BigWalker, count: 2, interval: 200 } ],
 ];
 
 function Plan(game) {
@@ -172,7 +174,7 @@ function Game() {
         this.plan.draw();
         drawMap(canvas, ctx);
         this.monsters.each(function (monster) {
-            drawMonster(canvas, ctx, monster);
+            monster.draw(canvas, ctx);
         });
         this.towers.each(function (tower) {
             tower.draw(canvas, ctx);
@@ -388,6 +390,85 @@ function Walker(x, y, path, waveFactor) {
     this.hp = this.maxHp = 50 * waveFactor;
     this.reward = 1;
     this.speed = 3;
+
+    this.draw = function(canvas, ctx) {
+        var monster = this;
+        ctx.save();
+
+        ctx.beginPath();
+        ctx.translate(monster.x, monster.y);
+        ctx.arc(0, 0, halfcell * 0.5 - 2, 0, 2*Math.PI);
+        if (monster.dead) {
+            ctx.fillStyle = "red";
+        } else {
+            ctx.fillStyle = "pink";
+        }
+        ctx.strokeStyle = "white";
+        ctx.lineWidth = 2;
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.restore();
+
+        // Plot pathfinding state.
+        // ctx.save();
+        // _(monster.path).each(function(cell) {
+        //     var x = cell[0];
+        //     var y = cell[1];
+        //     ctx.lineTo(x, y);
+        // });
+        // ctx.strokeStyle = "yellow";
+        // ctx.stroke();
+        // ctx.restore();
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.translate(monster.x - halfcell, monster.y + halfcell);
+        ctx.moveTo(0, 0);
+        ctx.lineTo(cellsize * (monster.hp / monster.maxHp), 0);
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = "red";
+        ctx.stroke();
+        ctx.restore();
+    };
+}
+
+function BigWalker(x, y, path, waveFactor) {
+    Monster.call(this, x, y, path);
+
+    this.hp = this.maxHp = 150 * waveFactor;
+    this.reward = 2;
+    this.speed = 1.5;
+
+    this.draw = function(canvas, ctx) {
+        var monster = this;
+        ctx.save();
+
+        ctx.beginPath();
+        ctx.translate(monster.x, monster.y);
+        ctx.arc(0, 0, halfcell * 0.9 - 2, 0, 2*Math.PI);
+        if (monster.dead) {
+            ctx.fillStyle = "red";
+        } else {
+            ctx.fillStyle = "pink";
+        }
+        ctx.strokeStyle = "white";
+        ctx.lineWidth = 2;
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.restore();
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.translate(monster.x - halfcell, monster.y + halfcell);
+        ctx.moveTo(0, 0);
+        ctx.lineTo(cellsize * (monster.hp / monster.maxHp), 0);
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = "red";
+        ctx.stroke();
+        ctx.restore();
+    };
 }
 
 function GunTower(x, y) {
@@ -609,46 +690,6 @@ function drawMap(canvas, ctx) {
         }
     }
 
-    ctx.restore();
-}
-
-function drawMonster(canvas, ctx, monster) {
-    ctx.save();
-
-    ctx.beginPath();
-    ctx.translate(monster.x, monster.y);
-    ctx.arc(0, 0, halfcell * 0.9 - 2, 0, 2*Math.PI);
-    if (monster.dead) {
-        ctx.fillStyle = "red";
-    } else {
-        ctx.fillStyle = "pink";
-    }
-    ctx.strokeStyle = "white";
-    ctx.lineWidth = 2;
-    ctx.fill();
-    ctx.stroke();
-
-    ctx.restore();
-
-    // Plot pathfinding state.
-    // ctx.save();
-    // _(monster.path).each(function(cell) {
-    //     var x = cell[0];
-    //     var y = cell[1];
-    //     ctx.lineTo(x, y);
-    // });
-    // ctx.strokeStyle = "yellow";
-    // ctx.stroke();
-    // ctx.restore();
-
-    ctx.save();
-    ctx.beginPath();
-    ctx.translate(monster.x - halfcell, monster.y + halfcell);
-    ctx.moveTo(0, 0);
-    ctx.lineTo(cellsize * (monster.hp / monster.maxHp), 0);
-    ctx.lineWidth = 3;
-    ctx.strokeStyle = "red";
-    ctx.stroke();
     ctx.restore();
 }
 
