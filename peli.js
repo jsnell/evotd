@@ -371,6 +371,7 @@ function Monster(x, y, path) {
         if (this.hp < 0) {
             game.monsterDead(this);
         }
+        this.damageAnimation = 3;
     };
 
     return this;
@@ -400,9 +401,12 @@ function Walker(x, y, path, waveFactor) {
         ctx.arc(0, 0, halfcell * 0.5 - 2, 0, 2*Math.PI);
         if (monster.dead) {
             ctx.fillStyle = "red";
-        } else {
+        } else if (monster.damageAnimation) {
+            ctx.fillStyle = "lightgray";
+            --monster.damageAnimation;
+        }else {
             ctx.fillStyle = "pink";
-        }
+        } 
         ctx.strokeStyle = "white";
         ctx.lineWidth = 2;
         ctx.fill();
@@ -449,6 +453,9 @@ function BigWalker(x, y, path, waveFactor) {
         ctx.arc(0, 0, halfcell * 0.9 - 2, 0, 2*Math.PI);
         if (monster.dead) {
             ctx.fillStyle = "red";
+        } else if (monster.damageAnimation) {
+            ctx.fillStyle = "lightgray";
+            --monster.damageAnimation;
         } else {
             ctx.fillStyle = "pink";
         }
