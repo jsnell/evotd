@@ -895,8 +895,11 @@ function column(c) {
 
 function selectRandomTowerType() {
     var type = null;
-    if (Math.random() < 0.1) {
+    var r = Math.random();
+    if (r < 0.1) {
         type = 'pulse';
+    } else if (r < 0.2) {
+        type = 'slow';
     } else {
         type = 'gun';
     }
