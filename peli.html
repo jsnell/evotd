@@ -10,12 +10,19 @@
     <canvas id="main" width=800 height=480>
     </canvas>
     <ul id=plan></ul>
-    <button onclick="game.plan.maybeExecuteNext();">Update</button>
   </div>
   <div>
     <button onclick="game.pause();">Pause</button>
     <button onclick="game.start(50);">Slow</button>
     <button onclick="game.start(1);">Fast</button>
     <button onclick="game.pause(); init();">Reset</button>
+    <div style="display: inline-block">
+      <div id="currentgen-stats"></div>
+      <canvas id="currentgen-graph" width=250 height=100></canvas>
+    </div>
+    <div style="display: inline-block">
+      <div id="allgens-stats"></div>
+      <canvas id="allgens-graph" width=250 height=100></canvas>
+    </div>
   </div>
 </body>

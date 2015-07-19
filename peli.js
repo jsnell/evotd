@@ -1039,11 +1039,97 @@ function evolvePlan(popsize) {
         });
         return newPopulation;
     }
+
+    var maxWaveEver = 0;
+    var allgens = {
+        scores: [],
+    };
+    function updateAllGensGraph() {
+        var scores = allgens.scores;
+        if (!scores.length) {
+            return;
+        }
+        $('#allgens-stats').text("All finished generations");
+        $('#allgens-graph').each(function (index, canvas) {
+            if (!canvas.getContext) {
+                return;
+            }
+            var ctx = canvas.getContext("2d");
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            _(scores).each(function(score, index) {
+                ctx.save();
+                var width = canvas.width / population.length;
+                var xstart = index * width;
+                var heightMax = (score.max / maxWaveEver) * canvas.height;
+                var heightMean = (score.mean / maxWaveEver) * canvas.height;
+                
+                ctx.fillStyle='darkgreen';
+                ctx.fillRect(xstart, canvas.height,
+                             width, -heightMax);
+
+                ctx.fillStyle='lightgreen';
+                ctx.fillRect(xstart, canvas.height,
+                             width, -heightMean);
+                ctx.restore();
+            });
+        });
+    }
+
+    function resetCurrentGen() {
+        return {
+            scores: [],
+            max: 0,
+            min: 0,
+            mean: 0,
+        }
+    } 
+    var currentgen = resetCurrentGen();
+    function updateCurrentGenGraph() {
+        var scores = currentgen.scores;
+        if (!scores.length) {
+            return;
+        }
+        var minWave = scores[0].wave;
+        var maxWave = scores[0].wave;
+        var sumWave = 0;
+        _(scores).each(function(score) {
+            maxWave = Math.max(score.wave, maxWave);
+            minWave = Math.min(score.wave, minWave);
+            sumWave += score.wave;
+        });
+        var avgWave = sumWave / scores.length;
+        currentgen.max = maxWave;
+        currentgen.min = minWave;
+        currentgen.mean = avgWave;
+        $('#currentgen-stats').text("Generation " + generation +
+                                    ", Min: " + minWave + " Max: " + maxWave +
+                                    " Mean: " + Math.round(avgWave));
+        $('#currentgen-graph').each(function (index, canvas) {
+            if (!canvas.getContext) {
+                return;
+            }
+            var ctx = canvas.getContext("2d");
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            _(scores).each(function(score, index) {
+                ctx.save();
+                var width = canvas.width / population.length;
+                var xstart = index * width;
+                var height = (score.wave / maxWaveEver) * canvas.height;
+                ctx.fillStyle='darkgreen';
+                ctx.fillRect(xstart, canvas.height,
+                             width, -height);
+                ctx.restore();
+            });
+        });
+    }
     
     function runTest(i) {
         if (i == popsize) {
             population = evolve();
             generation++;
+            allgens.scores.push(currentgen);
+            updateAllGensGraph();
+            currentgen = resetCurrentGen();
             return runTest(0);
         }
         population[i].commands = _(population[i].locations).map(
@@ -1063,6 +1149,9 @@ function evolvePlan(popsize) {
             console.log(i, score);
             population[i].score = score;
             population[i].lastCommandIndex = game.plan.index - 1;
+            currentgen.scores.push(population[i].score);
+            maxWaveEver = Math.max(score.wave, maxWaveEver);
+            updateCurrentGenGraph();
             runTest(i + 1);
         };
         game.start(1);
