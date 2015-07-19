@@ -907,10 +907,10 @@ function selectRandomTowerType() {
 }
 
 function generateRandomPlan() {
-    var locations = _(cols).range().map(function(col) {
-        return _(rows).range().map(function(row) {
-            return { col: col, row: row};
-        });
+    var locations = _(100).range().map(function(i) {
+        var rd = _.random(-3, 3);
+        var cd = _.random(-3, 3);
+        return { rd: rd, cd: cd};
     });
     locations = _.shuffle(_.flatten(locations, false));
     var builds = locations.map(selectRandomTowerType);
@@ -974,18 +974,22 @@ function evolvePlan(popsize) {
     });
 
     function breed(a, b) {
-        var snip = _.random(0, a.locations.length);
-        var locations = _(a.locations).first(snip).concat(
-            b.locations,
-            _(a.locations).rest(snip));
-        locations = _.uniq(locations,
-                           function (item) {
-                               return item.col * rows + item.row;
-                           });
-
-        var snip2 = _.random(0, a.locations.length - 1);
-        var builds = _(a.builds).first(snip).concat(
-            _(b.builds).rest(snip));
+        var locations = [];
+        var current = a;
+        for (var i = 0; i < a.locations.length; ++i) {
+            if (Math.random() < 0.05) {
+                current = (current == a ? b : a)
+            }
+            locations.push(current.locations[i])
+        }
+        var builds = [];
+        current = a;
+        for (var i = 0; i < a.locations.length; ++i) {
+            if (Math.random() < 0.05) {
+                current = (current == a ? b : a)
+            }
+            builds.push(current.builds[i])
+        }
         return {
             locations: locations,
             builds: builds,
@@ -1135,10 +1139,14 @@ function evolvePlan(popsize) {
             currentgen = resetCurrentGen();
             return runTest(0);
         }
+        var rr = Math.floor(rows / 2);
+        var cc = Math.floor(cols / 2);
         population[i].commands = _(population[i].locations).map(
             function(loc, index) {
                 var type = population[i].builds[index];
-                return "build " + type + " " + loc.col + " " + loc.row;
+                cc = (cc + loc.cd + cols) % cols;
+                rr = (rr + loc.rd + rows) % rows;
+                return "build " + type + " " + cc + " " + rr;
             });
         var game = init(population[i].commands);
         game.onStatus = function(elem) {
