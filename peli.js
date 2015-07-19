@@ -13,6 +13,11 @@ function Plan(game) {
     this.commands = [];
     this.index = 0;
 
+    this.reset = function() {
+        this.commands = [];
+        this.index = 0;
+    };
+
     this.addCommand = function(command) {
         var fun = this.parse(command);
         this.commands.push({ command: command,
@@ -92,6 +97,7 @@ function Game() {
     this.callback = null;
     this.waveIndex = 0;
     this.wave = null;
+    this.gameOver = false;
 
     for (var r = 0; r < rows; r++) {
         this.tiles[r] = {};
@@ -100,9 +106,13 @@ function Game() {
         }
     }
 
-    this.start = function(callback, interval) {
-        if (callback) {
-            this.callback = callback;
+    this.init = function(callback) {
+        this.callback = callback;
+    }
+
+    this.start = function(interval) {
+        if (this.gameOver) {
+            return;
         }
         if (this.timer) {
             this.pause();
@@ -136,6 +146,9 @@ function Game() {
     
     this.update = function() {
         var game = this;
+        if (this.gameOver) {
+            this.pause();
+        }
         this.monsters = _(this.monsters.filter(function (monster) {
             updateMonster(monster, game);
             return !(monster.win || monster.dead);
@@ -207,6 +220,13 @@ function Game() {
         monster.win = true;
         this.monsterWins++;
         this.updateStatus();
+        if (this.monsterWins >= 20) {
+            this.gameOver = true;
+            if (this.onGameOver) {
+                this.onGameOver();
+            }
+            this.pause();
+        }
     };
 
     this.monsterDead = function(monster) {
@@ -220,14 +240,19 @@ function Game() {
     };
 
     this.updateStatus = function () {
+        var game = this;
         var text = this.monsterDeaths + " dead / " +
             this.monsterWins + " through / " +
             "$" + this.money + " / wave " +
             this.waveIndex;
         $('#status').each(function(index, elem) {
             elem.innerText = text;
+            if (game.onStatus) {
+                game.onStatus(elem);
+            }
         });
     };
+
 }
 
 function SpawnPoint(game, c, r, goal) {
@@ -262,7 +287,7 @@ function SpawnPoint(game, c, r, goal) {
         case 1:
             // Generating
             if (--this.cooldown < 0) {
-                var waveFactor = 1 + this.game.waveIndex / 10;
+                var waveFactor = 1 + this.game.waveIndex / 20;
                 this.game.monsters.push(new this.wave.type(this.x, this.y,
                                                            this.path,
                                                            waveFactor));
@@ -347,6 +372,14 @@ function Monster(x, y, path) {
     };
 
     return this;
+}
+
+function Walker(x, y, path, waveFactor) {
+    Monster.call(this, x, y, path);
+
+    this.hp = this.maxHp = 50 * waveFactor;
+    this.reward = 1;
+    this.speed = 3;
 }
 
 function Walker(x, y, path, waveFactor) {
@@ -695,8 +728,33 @@ function column(c) {
     return c * cellsize;
 }
 
+function selectRandomTowerType() {
+    var type = null;
+    if (Math.random() < 0.1) {
+        type = 'pulse';
+    } else {
+        type = 'gun';
+    }
+    return type;
+}
+
+function generateRandomPlan() {
+    var locations = _(cols).range().map(function(col) {
+        return _(rows).range().map(function(row) {
+            return { col: col, row: row};
+        });
+    });
+    locations = _.shuffle(_.flatten(locations, false));
+    var builds = locations.map(selectRandomTowerType);
+    return {
+        locations: locations,
+        builds: builds,
+    }
+}
+
+var speed = 1;
 var game;
-function init() {
+function init(initialPlan) {
     game = new Game();
     // Define multiple spawning points in the same location so that we can
     // generate multiple kinds of enemies / timings from a single location
@@ -706,17 +764,9 @@ function init() {
     game.addSpawnPoint(10, 0, [10, 11]);
     game.addSpawnPoint(10, 0, [10, 11]);
 
-    game.plan.addCommand('build gun 8 4');
-    game.plan.addCommand('build pulse 8 4');
-    game.plan.addCommand('build gun 10 5');
-    game.plan.addCommand('build gun 10 6');
-    game.plan.addCommand('build gun 10 3');
-    game.plan.addCommand('build gun 10 4');
-    game.plan.addCommand('build gun 8 7');
-    game.plan.addCommand('build gun 8 8');
-    game.plan.addCommand('build gun 9 9');
-    game.plan.addCommand('build gun 8 6');
-    game.plan.addCommand('build pulse 10 7');
+    _(initialPlan).each(function(cmd) {
+        game.plan.addCommand(cmd);
+    });
 
     $('#main').each(function (index, canvas) {
         if (!canvas.getContext) {
@@ -725,9 +775,119 @@ function init() {
         var ctx = canvas.getContext("2d");
 
         function updateAndDraw() {
-            game.update();
+            _(speed).times(function() { game.update() });
+            // game.update();
             game.draw(canvas, ctx);
         };
-        game.start(updateAndDraw, 50);
+        game.init(updateAndDraw);
+        game.start(50);
     });
+    return game;
+}
+
+function evolvePlan(popsize) {
+    var generation = 1;
+    var population = _(popsize).range().map(function(i) {
+        return generateRandomPlan();
+    });
+
+    function breed(a, b) {
+        var snip = _.random(0, a.locations.length);
+        var locations = _(a.locations).first(snip).concat(
+            b.locations,
+            _(a.locations).rest(snip));
+        locations = _.uniq(locations,
+                           function (item) {
+                               return item.col * rows + item.row;
+                           });
+
+        var snip2 = _.random(0, a.locations.length - 1);
+        var builds = _(a.builds).first(snip).concat(
+            _(b.builds).rest(snip));
+        return {
+            locations: locations,
+            builds: builds,
+        }
+    }
+    function evolve() {
+        var scored = _(population).sortBy(function(a) {
+            a.score_ = (a.score.wave << 20) + a.score.killed;
+            return a.score_;
+        });
+        var scoreSum = 0;
+        _(scored).each(function(x) {
+            scoreSum += x.score_;
+        });
+        function randomWeightedByScore() {
+            var random = Math.random() * scoreSum;
+            var iterSum = 0;
+            var result = _(scored).last();
+            try {
+                _(scored).each(function(x) {
+                    iterSum += x.score_;
+                    if (iterSum >= random) {
+                        throw x;
+                    }
+                });
+            } catch (expected) {
+                result = expected;
+            }
+            return result;
+        };
+        function mutate(a, parent) {
+            var i = Math.max(0, parent.lastCommandIndex);
+            if (Math.random() > 0.75) {
+                i = _.random(0, i);
+            }
+            if (Math.random() > 0.9) {
+                a.builds[i] = selectRandomTowerType();
+            } else {
+                var r = _.random(i,
+                                 a.locations.length - 1);
+                console.assert(a.locations[r],
+                               a.locations[i]);
+                var tmp = a.locations[i];
+                a.locations[i] = a.locations[r];
+                a.locations[r] = tmp;
+                console.log("swapped ", r, i);
+            }
+            return a;
+        }
+        var newPopulation = _(popsize).range().map(function(i) {
+            var a = randomWeightedByScore();
+            var b = randomWeightedByScore();
+            return mutate(breed(a, b), a);
+        });
+        return newPopulation;
+    }
+    
+    function runTest(i) {
+        if (i == popsize) {
+            population = evolve();
+            generation++;
+            return runTest(0);
+        }
+        population[i].commands = _(population[i].locations).map(
+            function(loc, index) {
+                var type = population[i].builds[index];
+                return "build " + type + " " + loc.col + " " + loc.row;
+            });
+        var game = init(population[i].commands);
+        game.onStatus = function(elem) {
+            elem.innerText += ' / generation ' + generation;
+            elem.innerText += ' / candidate ' + i;
+        };
+        game.onGameOver = function() {
+            var score = { wave: game.waveIndex,
+                          killed: game.monsterDeaths,
+                          commands: game.plan.index};
+            console.log(i, score);
+            population[i].score = score;
+            population[i].lastCommandIndex = game.plan.index - 1;
+            runTest(i + 1);
+        };
+        game.start(1);
+    }
+    breed(population[0], population[1]);
+    runTest(0);
 }
