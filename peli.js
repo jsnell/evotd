@@ -764,9 +764,23 @@ function init(initialPlan) {
     game.addSpawnPoint(10, 0, [10, 11]);
     game.addSpawnPoint(10, 0, [10, 11]);
 
-    _(initialPlan).each(function(cmd) {
-        game.plan.addCommand(cmd);
-    });
+    if (initialPlan) {
+        _(initialPlan).each(function(cmd) {
+            game.plan.addCommand(cmd);
+        });
+    } else {
+        game.plan.addCommand('build gun 8 4');
+        game.plan.addCommand('build pulse 8 4');
+        game.plan.addCommand('build gun 10 5');
+        game.plan.addCommand('build gun 10 6');
+        game.plan.addCommand('build gun 10 3');
+        game.plan.addCommand('build gun 10 4');
+        game.plan.addCommand('build gun 8 7');
+        game.plan.addCommand('build gun 8 8');
+        game.plan.addCommand('build gun 9 9');
+        game.plan.addCommand('build gun 8 6');
+        game.plan.addCommand('build pulse 10 7');
+    }
 
     $('#main').each(function (index, canvas) {
         if (!canvas.getContext) {
