@@ -165,11 +165,11 @@ function Game() {
             tower.update(game);
         });
         var wave_done = this.monsters.size() == 0;
-        this.spawnPoints.each(function (sp) {
-            sp.update();
+        this.spawnPoints.each(function (sp, index) {
             if (sp.state != 2) {
                 wave_done = false;
             }
+            sp.update();
         });
         if (wave_done) {
             this.newWave();
