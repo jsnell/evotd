@@ -392,14 +392,6 @@ function Walker(x, y, path, waveFactor) {
     this.hp = this.maxHp = 50 * waveFactor;
     this.reward = 1;
     this.speed = 3;
-}
-
-function Walker(x, y, path, waveFactor) {
-    Monster.call(this, x, y, path);
-
-    this.hp = this.maxHp = 50 * waveFactor;
-    this.reward = 1;
-    this.speed = 3;
 
     this.draw = function(canvas, ctx) {
         var monster = this;
@@ -491,82 +483,117 @@ function BigWalker(x, y, path, waveFactor) {
     };
 }
 
-function GunTower(x, y) {
+function Tower(x, y) {
     this.x = x;
     this.y = y;
     this.angle = 0;
-    this.background = 10;
-    this.range = cellsize * 1.75;
-    this.cost = 5;
 
     this.update = function(game) {
         var tower = this;
+        tower.beforeUpdate(game);
         if (tower.shootAnimation) {
-            tower.shootAnimation -= 0.5;
-            if (tower.shootAnimation < 0) {
-                tower.shootAnimation = 0;
+            if (!--tower.shootAnimation) {
+                tower.finishShoot(game);
+            } else {
+                tower.inShoot(game);
             }
+        } else if (tower.cooldown) {
+            if (!--tower.cooldown) {
+                tower.finishCooldown(game);
+            } else {
+                tower.inCooldown(game);
+            }
+        } else if (tower.acquireTarget(game)) {
+            tower.trackTarget(game);
         } else {
-            var target = null;
-            var angle;
-            if (tower.target && distance(tower, tower.target) < this.range) {
-                target = tower.target;
-            } else {
-                target = findClosest(tower, game.monsters);
-            }
-            if (target) {
-                angle = angleFrom(tower, target);
-            } else {
-                angle = 0;
-            }
-            var diff = angle - tower.angle;
-            var turnSpeed = 0.2;
-            if (Math.abs(diff) < turnSpeed) {
-                tower.angle = angle;
-                if (!tower.cooldown && target) {
-                    var d = distance(tower, target);
-                    if (d < this.range) {
-                        tower.cooldown = 20;
-                        tower.shootAnimation = 5;
-                        tower.shootingAt = {
-                            x: target.x,
-                            y: target.y,
-                        };
-                        target.damage(game, 15);
-                    }
-                }
-            } else {
-                var direction = (normalizeAngle(diff) < Math.PI ?
-                                 turnSpeed : -turnSpeed);
-                tower.angle = normalizeAngle(tower.angle + direction);
-            }
+            tower.inIdle(game);
         }
+        tower.afterUpdate(game);
+    }
 
-        tower.cooldown -= 1;
-        if (tower.cooldown < 0) {
-            tower.cooldown = 0;
+    this.beforeUpdate = function(game) {}
+    this.afterUpdate = function(game) {}
+
+    this.beginShoot = function(game) { }
+    this.inShoot = function(game) {}
+    this.finishShoot = function(game) {}
+
+    this.finishCooldown = function(game) {}
+    this.inCooldown = function(game) {}
+
+    this.acquireTarget = function(game) {
+        if (this.target && this.inRange(this.target) &&
+            !(this.target.dead || this.target.win)) {
+            return true;
+        } else {
+            this.target = findClosest(this, game.monsters);
         }
+        return false;
+    }
+
+    this.inRange = function (object) {
+        return distance(this, object) < this.range
+    }
+    
+    this.turnToAngle = function(game, targetAngle) {
+        var diff = targetAngle - this.angle;
+        if (Math.abs(diff) < this.turnSpeed) {
+            this.angle = targetAngle;
+            this.targetInSights(game);            
+        } else {
+            // Turn as far toward the target as we can.
+            var direction = (normalizeAngle(diff) < Math.PI ?
+                             this.turnSpeed : -this.turnSpeed);
+            this.angle = normalizeAngle(this.angle + direction);
+        }
+    }
+
+    this.trackTarget = function(game) {
+        var angle = angleFrom(this, this.target);
+        this.turnToAngle(game, angle);
+    }
+
+    this.targetInSights = function(game) {
+        if (!this.cooldown && this.target && this.inRange(this.target)) {
+            this.beginShoot(game);
+        }
+    }
+
+    this.inIdle = function(game) {
+        this.turnToAngle(game, 0);
+    }
+}
+
+function GunTower(x, y) {
+    Tower.call(this, x, y);
+    this.background = 10;
+    this.range = cellsize * 1.75;
+    this.cost = 5;
+    this.turnSpeed = 0.2;
+
+    this.beginShoot = function(game) {
+        // Shoots every 6 ticks for 6 damage
+        this.cooldown = 2;
+        this.shootAnimation = 3;
+        this.shootingAt = {
+            x: this.target.x,
+            y: this.target.y,
+        };
+        this.target.damage(game, 6);
     }
 
     this.draw = function(canvas, ctx) {
         var tower = this;
-        // ctx.save();
-        // var x = tower.x - tower.x % 10 - 10;
-        // var y = tower.y - tower.y % 10 - 10;
-        // ctx.fillStyle="lightgreen";
-        // ctx.fillRect(x, y, 20, 20);
-        // ctx.restore();
 
         ctx.save();
         if (tower.shootAnimation) {
             ctx.beginPath();
             ctx.moveTo(tower.x, tower.y);
             ctx.lineTo(tower.shootingAt.x, tower.shootingAt.y);
-            ctx.lineWidth = tower.shootAnimation;
+            ctx.lineWidth = tower.shootAnimation / 2;
             ctx.strokeStyle = "red";
             ctx.stroke();
         }
-
         ctx.restore();
 
         ctx.save();
@@ -594,70 +621,25 @@ function GunTower(x, y) {
 }
 
 function SlowTower(x, y) {
-    this.x = x;
-    this.y = y;
-    this.angle = 0;
+    Tower.call(this, x, y);
+
     this.background = 12;
     this.range = cellsize * 1.75;
     this.cost = 10;
+    this.turnSpeed = 0.15;
 
-    this.update = function(game) {
-        var tower = this;
-        if (tower.shootAnimation) {
-            tower.shootAnimation -= 0.5;
-            if (tower.shootAnimation < 0) {
-                tower.shootAnimation = 0;
-            }
-        } else {
-            var target = null;
-            var angle;
-            if (tower.target && distance(tower, tower.target) < this.range) {
-                target = tower.target;
-            } else {
-                target = findClosest(tower, game.monsters);
-            }
-            if (target) {
-                angle = angleFrom(tower, target);
-            } else {
-                angle = 0;
-            }
-            var diff = angle - tower.angle;
-            var turnSpeed = 0.1;
-            if (Math.abs(diff) < turnSpeed) {
-                tower.angle = angle;
-                if (!tower.cooldown && target) {
-                    var d = distance(tower, target);
-                    if (d < this.range) {
-                        tower.cooldown = 20;
-                        tower.shootAnimation = 5;
-                        tower.shootingAt = {
-                            x: target.x,
-                            y: target.y,
-                        };
-                        target.slowdown = 30;
-                    }
-                }
-            } else {
-                var direction = (normalizeAngle(diff) < Math.PI ?
-                                 turnSpeed : -turnSpeed);
-                tower.angle = normalizeAngle(tower.angle + direction);
-            }
-        }
-
-        tower.cooldown -= 1;
-        if (tower.cooldown < 0) {
-            tower.cooldown = 0;
-        }
+    this.beginShoot = function(game) {
+        this.cooldown = 20;
+        this.shootAnimation = 5;
+        this.shootingAt = {
+            x: this.target.x,
+            y: this.target.y,
+        };
+        this.target.slowdown = 30;
     }
 
     this.draw = function(canvas, ctx) {
         var tower = this;
-        // ctx.save();
-        // var x = tower.x - tower.x % 10 - 10;
-        // var y = tower.y - tower.y % 10 - 10;
-        // ctx.fillStyle="lightgreen";
-        // ctx.fillRect(x, y, 20, 20);
-        // ctx.restore();
 
         ctx.save();
         if (tower.shootAnimation) {
@@ -699,46 +681,38 @@ function SlowTower(x, y) {
 }
 
 function PulseTower(x, y) {
-    this.x = x;
-    this.y = y;
-    this.angle = 0;
-    this.shootAnimation = 0;
-    this.idleAnimation = 0;
+    Tower.call(this, x, y);
+
     this.background = 11;
     this.range = cellsize * 2;
     this.cost = 80;
+    this.turnSpeed = 0.3;
+    
+    this.beforeUpdate = function(game) {
+        this.angle = normalizeAngle(this.angle + this.turnSpeed);
+    }
 
-    this.update = function(game) {
+    this.beginShoot = function(game) {
+        this.shootAnimation = 5;
+    }
+
+    this.finishShoot = function(game) {
+        // Shoots every 26 ticks for 100 in splash damage, might miss
+        // target entirely.
         var tower = this;
-        tower.angle = normalizeAngle(tower.angle + 0.3);    
-        if (tower.shootAnimation) {
-            tower.shootAnimation -= 1;
-            if (tower.shootAnimation == 1) {
-                game.monsters.each(function (monster) {
-                    var d = distance(tower, monster);
-                    if (d <= tower.range) {
-                        monster.damage(game, 100);
-                    }
-                });
+        game.monsters.each(function (monster) {
+            if (tower.inRange(monster)) {
+                monster.damage(game, 100);
             }
-            return;
-        }
-        if (tower.cooldown) {
-            tower.cooldown -= 1;
-            return;
-        }
+        });
+        tower.cooldown = 20;
+    }
 
-        var target = findClosest(tower, game.monsters);
-        if (target && distance(tower, target) < tower.range) {
-            tower.shootAnimation = 5;
-            tower.cooldown = 20;
-            tower.idleAnimation = 0;
+    this.inIdle = function(game) {
+        if (!this.idleAnimation) {
+            this.idleAnimation = 10;
         } else {
-            if (!tower.idleAnimation) {
-                tower.idleAnimation = 10;
-            } else {
-                tower.idleAnimation -= 1;
-            }
+            this.idleAnimation -= 1;
         }
     }
 
@@ -798,74 +772,54 @@ function PulseTower(x, y) {
 }
 
 function MissileTower(x, y) {
-    this.x = x;
-    this.y = y;
-    this.angle = 0;
+    Tower.call(this, x, y);
+
     this.background = 11;
     this.maxRange = cellsize * 5.0;
     this.minRange = cellsize * 2.0;
     this.explosionRange = cellsize * 0.75;
     this.cost = 20;
+    this.turnSpeed = 0.1;
+    
+    this.beforeUpdate = function(game) {
+        if (this.explosionAnimation > 0) {
+            if (!--this.explosionAnimation) {
+                this.finishExplosion(game);
+            }
+        }
+    }
 
-    this.update = function(game) {
+    this.beginShoot = function(game) {
+        // Shoots every 31 ticks for 50 in splash damage, might miss
+        // target entirely.
+        this.shootAnimation = 10;
+        this.shootingAt = {
+            x: this.target.x,
+            y: this.target.y,
+        };
+    }
+
+    this.finishShoot = function() {
+        this.explosionAnimation = 5;
+        this.cooldown = 20;
+    }
+
+    this.inIdle = function() {
+    }
+    
+    this.finishExplosion = function(game) {
         var tower = this;
-        if (tower.shootAnimation > 0) {
-            if (!--tower.shootAnimation) {
-                tower.explosionAnimation = 5;
+        _(game.monsters).each(function (monster) {
+            var d = distance(tower.shootingAt, monster);
+            if (d < tower.explosionRange) {
+                monster.damage(game, 50);
             }
-        } else if (tower.explosionAnimation > 0) {
-            if (!--tower.explosionAnimation) {
-                _(game.monsters).each(function (monster) {
-                    var d = distance(tower, monster);
-                    if (d < tower.explosionRange) {
-                        monster.damage(50);
-                    }
-                });
-            }
-        } else {
-            var target = null;
-            var angle;
-            var d;
-            if (tower.target &&
-                (d = distance(tower, tower.target)) < this.maxRange &&
-                d >= this.minRange) {
-                target = tower.target;
-            } else {
-                target = findClosest(tower, game.monsters);
-            }
-            if (target) {
-                angle = angleFrom(tower, target);
-            } else {
-                angle = 0;
-            }
-            var diff = angle - tower.angle;
-            var turnSpeed = 0.2;
-            if (Math.abs(diff) < turnSpeed) {
-                tower.angle = angle;
-                if (!tower.cooldown && target) {
-                    var d = distance(tower, target);
-                    if (d < this.maxRange &&
-                        d >= this.minRange) {
-                        tower.cooldown = 20;
-                        tower.shootAnimation = 10;
-                        tower.shootingAt = {
-                            x: target.x,
-                            y: target.y,
-                        };
-                        target.damage(game, 15);
-                    }
-                }
-            } else {
-                var direction = (normalizeAngle(diff) < Math.PI ?
-                                 turnSpeed : -turnSpeed);
-                tower.angle = normalizeAngle(tower.angle + direction);
-            }
-        }
+        });
+    }
 
-        tower.cooldown -= 1;
-        if (tower.cooldown < 0) {
-            tower.cooldown = 0;
-        }
+    this.inRange = function(object) {
+        var d = distance(this, this.target);
+        return d < this.maxRange && d >= this.minRange;
     }
 
     this.draw = function(canvas, ctx) {
@@ -1121,13 +1075,13 @@ function init(initialPlan) {
     game.addSpawnPoint(0, 4, [19, 7]);
     game.addSpawnPoint(10, 0, [10, 11]);
     game.addSpawnPoint(10, 0, [10, 11]);
-
+    
     if (initialPlan) {
         _(initialPlan).each(function(cmd) {
             game.plan.addCommand(cmd);
         });
     } else {
-        game.plan.addCommand('build missile 8 4');
+        game.plan.addCommand('build gun 8 4');
         game.plan.addCommand('build pulse 8 4');
         game.plan.addCommand('build gun 10 5');
         game.plan.addCommand('build slow 10 6');
@@ -1138,6 +1092,7 @@ function init(initialPlan) {
         game.plan.addCommand('build gun 9 9');
         game.plan.addCommand('build gun 8 6');
         game.plan.addCommand('build pulse 10 7');
+        game.plan.addCommand('build missile 11 5');
     }
 
     $('#main').each(function (index, canvas) {
