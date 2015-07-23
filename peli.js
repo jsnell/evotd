@@ -44,6 +44,9 @@ function Plan(game) {
             case 'pulse':
                 type = PulseTower;
                 break;
+            default:
+                throw "Unknown tower type '" + type + "'";
+                break;
             };
             var c = parseInt(tokens.shift());
             var r = parseInt(tokens.shift());
