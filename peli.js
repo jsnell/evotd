@@ -4,8 +4,8 @@ var rows = 12;
 var cols = 20;
 
 var waves = [
-    [ { source: 0, type: Walker, count: 3, interval: 100 } ],
-    [ { source: 2, type: Walker, count: 3, interval: 100 } ],
+    [ { source: 0, type: Walker, count: 3, interval: 400 } ],
+    [ { source: 2, type: Walker, count: 3, interval: 400 } ],
     [ { source: 0, type: BigWalker, count: 2, interval: 200 } ],
     [ { source: 2, type: BigWalker, count: 2, interval: 200 } ],
 ];
@@ -909,17 +909,74 @@ function selectRandomTowerType() {
     return type;
 }
 
-function generateRandomPlan() {
-    var locations = _(100).range().map(function(i) {
-        var rd = _.random(-3, 3);
-        var cd = _.random(-3, 3);
-        return { rd: rd, cd: cd};
-    });
-    locations = _.shuffle(_.flatten(locations, false));
-    var builds = locations.map(selectRandomTowerType);
-    return {
-        locations: locations,
-        builds: builds,
+var MOVE_ABS = 1;
+var MOVE_REL = 2;
+var BUILD_REL = 2;
+
+function Program() {
+    this.program = [];
+
+    this.randomInstruction = function () {
+        var i = Math.random();
+        var c = _.random(0, 2);
+        
+        if (i < 0.01) {
+            var a = _.random(0, cols - 1);
+            var b = _.random(0, rows - 1);
+            return { type: MOVE_ABS, a: a, b: b, c: c}
+        } else if (i < 0.1) {
+            var a = _.random(-3, 3);
+            var b = _.random(-3, 3);
+            return { type: MOVE_REL, a: a, b: b, c: c};
+        } else {
+            var a = _.random(-3, 3);
+            var b = _.random(-3, 3);
+            return { type: BUILD_REL, a: a, b: b, c: c};
+        }
+    };
+
+    this.plan = function()  {
+        var rr = Math.floor(rows / 2);
+        var cc = Math.floor(cols / 2);
+        return _(this.program).map(function(inst) {
+            if (inst.type == MOVE_REL ||
+                inst.type == BUILD_REL) {
+                cc = (cc + inst.a + cols) % cols;
+                rr = (rr + inst.b + rows) % rows;
+            } else if (inst.type == MOVE_ABS) {
+                cc = (inst.a) % cols;
+                rr = (inst.b) % rows;
+            }
+            if (inst.type == BUILD_REL) {
+                var building = "";
+                switch(inst.c % 3) {
+                case 0:
+                    building = "gun";
+                    break;
+                case 1:
+                    building = "slow";
+                    break;
+                case 2:
+                    building = "pulse";
+                    break;
+                default:
+                    throw "Bad building type";
+                };
+                return "build " + building + " " + cc + " " + rr;
+            } else {
+                return null;
+            }
+        }).filter(function(cmd) {
+            return cmd != null;
+        });
+    };
+
+    this.replaceWithRandomProgram = function() {
+        var program = this;
+        var instructions = _(100).range().map(function(i) {
+            return program.randomInstruction();
+        });
+        this.program = _.shuffle(_.flatten(instructions, false));
     }
 }
 
@@ -980,30 +1037,42 @@ function init(initialPlan) {
 function evolvePlan(popsize) {
     var generation = 1;
     var population = _(popsize).range().map(function(i) {
-        return generateRandomPlan();
+        var prog = new Program();
+        prog.replaceWithRandomProgram();
+        return prog;
     });
 
     function breed(a, b) {
-        var locations = [];
+        var insts = [];
         var current = a;
-        for (var i = 0; i < a.locations.length; ++i) {
+        for (var i = 0; i < a.program.length; ++i) {
             if (Math.random() < 0.05) {
                 current = (current == a ? b : a)
             }
-            locations.push(current.locations[i])
+            insts.push(current.program[i])
         }
-        var builds = [];
-        current = a;
-        for (var i = 0; i < a.locations.length; ++i) {
-            if (Math.random() < 0.05) {
-                current = (current == a ? b : a)
+        var prog = new Program();
+        prog.program = insts;
+        return prog;
+    }
+    function mutate(a) {
+        _(5).range().map(function () {
+            var len = a.program.length;
+            var i = _.random(0, len - 1);
+            var j = _.random(0, len - 1);
+            var r = Math.random();
+            if (r < 0.2) {
+                a.program[i] = a.randomInstruction();
+            } else {
+                if (r >= 0.5) {
+                    j = (i + 1) % len;
+                }
+                var tmp = a.program[i];
+                a.program[i] = a.program[j];
+                a.program[j] = tmp;
             }
-            builds.push(current.builds[i])
-        }
-        return {
-            locations: locations,
-            builds: builds,
-        }
+        });
+        return a;
     }
     function evolve() {
         var scored = _(population).sortBy(function(a) {
@@ -1030,29 +1099,10 @@ function evolvePlan(popsize) {
             }
             return result;
         };
-        function mutate(a, parent) {
-            var i = Math.max(0, parent.lastCommandIndex);
-            if (Math.random() > 0.75) {
-                i = _.random(0, i);
-            }
-            if (Math.random() > 0.9) {
-                a.builds[i] = selectRandomTowerType();
-            } else {
-                var r = _.random(i,
-                                 a.locations.length - 1);
-                console.assert(a.locations[r],
-                               a.locations[i]);
-                var tmp = a.locations[i];
-                a.locations[i] = a.locations[r];
-                a.locations[r] = tmp;
-                console.log("swapped ", r, i);
-            }
-            return a;
-        }
         var newPopulation = _(popsize).range().map(function(i) {
             var a = randomWeightedByScore();
             var b = randomWeightedByScore();
-            return mutate(breed(a, b), a);
+            return mutate(breed(a, b));
         });
         return newPopulation;
     }
@@ -1075,7 +1125,8 @@ function evolvePlan(popsize) {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             _(scores).each(function(score, index) {
                 ctx.save();
-                var width = canvas.width / population.length;
+                var width = Math.min(canvas.width / population.length,
+                                     canvas.width / scores.length);
                 var xstart = index * width;
                 var heightMax = (score.max / maxWaveEver) * canvas.height;
                 var heightMean = (score.mean / maxWaveEver) * canvas.height;
@@ -1149,16 +1200,13 @@ function evolvePlan(popsize) {
             currentgen = resetCurrentGen();
             return runTest(0);
         }
-        var rr = Math.floor(rows / 2);
-        var cc = Math.floor(cols / 2);
-        population[i].commands = _(population[i].locations).map(
-            function(loc, index) {
-                var type = population[i].builds[index];
-                cc = (cc + loc.cd + cols) % cols;
-                rr = (rr + loc.rd + rows) % rows;
-                return "build " + type + " " + cc + " " + rr;
-            });
-        var game = init(population[i].commands);
+        var game;
+        try {
+            game = init(population[i].plan());
+        } catch (e) {
+            console.log(e, population[i]);
+            throw e;
+        }
         game.onStatus = function(elem) {
             elem.innerText += ' / generation ' + generation;
             elem.innerText += ' / candidate ' + i;
@@ -1177,6 +1225,6 @@ function evolvePlan(popsize) {
         };
         game.start(1);
     }
-    breed(population[0], population[1]);
+    mutate(breed(population[0], population[1]));
     runTest(0);
 }
