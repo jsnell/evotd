@@ -4,8 +4,8 @@ var rows = 12;
 var cols = 20;
 
 var waves = [
-    [ { source: 0, type: Walker, count: 3, interval: 400 } ],
-    [ { source: 2, type: Walker, count: 3, interval: 400 } ],
+    [ { source: 0, type: Walker, count: 3, interval: 100 } ],
+    [ { source: 2, type: Walker, count: 3, interval: 100 } ],
     [ { source: 0, type: BigWalker, count: 2, interval: 200 } ],
     [ { source: 2, type: BigWalker, count: 2, interval: 200 } ],
 ];
@@ -43,6 +43,9 @@ function Plan(game) {
                 break;
             case 'pulse':
                 type = PulseTower;
+                break;
+            case 'missile':
+                type = MissileTower;
                 break;
             default:
                 throw "Unknown tower type '" + type + "'";
@@ -794,6 +797,128 @@ function PulseTower(x, y) {
     return this;
 }
 
+function MissileTower(x, y) {
+    this.x = x;
+    this.y = y;
+    this.angle = 0;
+    this.background = 11;
+    this.maxRange = cellsize * 5.0;
+    this.minRange = cellsize * 2.0;
+    this.explosionRange = cellsize * 0.75;
+    this.cost = 20;
+
+    this.update = function(game) {
+        var tower = this;
+        if (tower.shootAnimation > 0) {
+            if (!--tower.shootAnimation) {
+                tower.explosionAnimation = 5;
+            }
+        } else if (tower.explosionAnimation > 0) {
+            if (!--tower.explosionAnimation) {
+                _(game.monsters).each(function (monster) {
+                    var d = distance(tower, monster);
+                    if (d < tower.explosionRange) {
+                        monster.damage(50);
+                    }
+                });
+            }
+        } else {
+            var target = null;
+            var angle;
+            var d;
+            if (tower.target &&
+                (d = distance(tower, tower.target)) < this.maxRange &&
+                d >= this.minRange) {
+                target = tower.target;
+            } else {
+                target = findClosest(tower, game.monsters);
+            }
+            if (target) {
+                angle = angleFrom(tower, target);
+            } else {
+                angle = 0;
+            }
+            var diff = angle - tower.angle;
+            var turnSpeed = 0.2;
+            if (Math.abs(diff) < turnSpeed) {
+                tower.angle = angle;
+                if (!tower.cooldown && target) {
+                    var d = distance(tower, target);
+                    if (d < this.maxRange &&
+                        d >= this.minRange) {
+                        tower.cooldown = 20;
+                        tower.shootAnimation = 10;
+                        tower.shootingAt = {
+                            x: target.x,
+                            y: target.y,
+                        };
+                        target.damage(game, 15);
+                    }
+                }
+            } else {
+                var direction = (normalizeAngle(diff) < Math.PI ?
+                                 turnSpeed : -turnSpeed);
+                tower.angle = normalizeAngle(tower.angle + direction);
+            }
+        }
+
+        tower.cooldown -= 1;
+        if (tower.cooldown < 0) {
+            tower.cooldown = 0;
+        }
+    }
+
+    this.draw = function(canvas, ctx) {
+        var tower = this;
+        ctx.save();
+        if (tower.shootAnimation) {
+            ctx.beginPath();
+            var dx = tower.shootingAt.x - tower.x;
+            var dy = tower.shootingAt.y - tower.y;
+            ctx.arc(tower.x + dx * (10 - tower.shootAnimation) / 10,
+                    tower.y + dy * (10 - tower.shootAnimation) / 10,
+                    cellsize / 10,
+                    0,
+                    2 * Math.PI);
+            ctx.fillStyle = 'white';
+            ctx.fill();
+        } else if (tower.explosionAnimation) {
+            ctx.beginPath();
+            ctx.arc(tower.shootingAt.x,
+                    tower.shootingAt.y,
+                    tower.explosionRange / (5 - tower.explosionAnimation),
+                    0,
+                    2 * Math.PI);
+            ctx.fillStyle = 'orange';
+            ctx.fill();
+        }
+
+        ctx.restore();
+
+        ctx.save();
+
+        ctx.beginPath();
+        ctx.translate(tower.x, tower.y);
+        ctx.rotate(tower.angle);
+        ctx.arc(0, 0, halfcell * 0.9, 0, 2*Math.PI);
+        ctx.fillStyle = "darkgray";
+        ctx.strokeStyle = "black";
+        ctx.lineWidth = 2;
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(0, halfcell * 1.5);
+        ctx.lineWidth = 5;
+        ctx.stroke();
+
+        ctx.restore();
+    }
+    
+    return this;
+}
+
 function drawMap(canvas, ctx) {
     ctx.save();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -903,6 +1028,8 @@ function selectRandomTowerType() {
         type = 'pulse';
     } else if (r < 0.2) {
         type = 'slow';
+    } else if (r < 0.3) {
+        type = 'missile';
     } else {
         type = 'gun';
     }
@@ -918,7 +1045,7 @@ function Program() {
 
     this.randomInstruction = function () {
         var i = Math.random();
-        var c = _.random(0, 2);
+        var c = _.random(0, 100);
         
         if (i < 0.01) {
             var a = _.random(0, cols - 1);
@@ -949,7 +1076,7 @@ function Program() {
             }
             if (inst.type == BUILD_REL) {
                 var building = "";
-                switch(inst.c % 3) {
+                switch(inst.c % 4) {
                 case 0:
                     building = "gun";
                     break;
@@ -958,6 +1085,9 @@ function Program() {
                     break;
                 case 2:
                     building = "pulse";
+                    break;
+                case 3:
+                    building = "missile";
                     break;
                 default:
                     throw "Bad building type";
@@ -997,7 +1127,7 @@ function init(initialPlan) {
             game.plan.addCommand(cmd);
         });
     } else {
-        game.plan.addCommand('build gun 8 4');
+        game.plan.addCommand('build missile 8 4');
         game.plan.addCommand('build pulse 8 4');
         game.plan.addCommand('build gun 10 5');
         game.plan.addCommand('build slow 10 6');
