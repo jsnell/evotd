@@ -134,6 +134,11 @@ function Game() {
         }
     };
 
+    this.pause = function() {
+        clearInterval(this.timer);
+        this.timer = null;
+    };
+    
     this.newWave = function() {
         while (this.plan.maybeExecuteNext()) {
             // Execute stuff.
@@ -150,11 +155,6 @@ function Game() {
         });
     }
 
-    this.pause = function() {
-        clearInterval(this.timer);
-        this.timer = null;
-    };
-    
     this.update = function() {
         var game = this;
         if (this.gameOver) {
@@ -374,6 +374,10 @@ function Monster(x, y, path) {
     this.y = y;
     this.path = path;
     this.pathIndex = 0;
+    this.baseColor = "steelblue"
+    this.slowColor = "lightblue"
+    this.hitColor = "lightgray"
+    this.deadColor = "read"
 
     this.damage = function(game, damage) {
         this.hp -= damage;
@@ -383,6 +387,46 @@ function Monster(x, y, path) {
         this.damageAnimation = 3;
     };
 
+    this.draw = function(canvas, ctx) {
+        try {
+            ctx.save();
+            ctx.translate(this.x, this.y);
+
+            ctx.beginPath();
+
+            ctx.save();
+            this.drawHP(canvas, ctx);
+            ctx.restore();
+
+            ctx.beginPath();
+            this.drawImpl(canvas, ctx);
+        } finally {
+            ctx.restore();
+        }
+    }
+
+    this.drawHP = function(canvas, ctx) {
+        ctx.beginPath();
+        ctx.translate(-halfcell, +halfcell);
+        ctx.moveTo(0, 0);
+        ctx.lineTo(cellsize * (this.hp / this.maxHp), 0);
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = "red";
+        ctx.stroke();
+    }
+
+    this.setFillStyle = function(ctx) {
+        if (this.dead) {
+            ctx.fillStyle = "red";
+        } else if (this.damageAnimation) {
+            ctx.fillStyle = "lightgray";
+        } else if (this.slowdown) {
+            ctx.fillStyle = "lightblue";
+        } else {
+            ctx.fillStyle = this.baseColor;
+        } 
+    }
+    
     return this;
 }
 
@@ -393,50 +437,15 @@ function Walker(x, y, path, waveFactor) {
     this.reward = 1;
     this.speed = 3;
 
-    this.draw = function(canvas, ctx) {
+    this.drawImpl = function(canvas, ctx) {
         var monster = this;
-        ctx.save();
 
-        ctx.beginPath();
-        ctx.translate(monster.x, monster.y);
         ctx.arc(0, 0, halfcell * 0.5 - 2, 0, 2*Math.PI);
-        if (monster.dead) {
-            ctx.fillStyle = "red";
-        } else if (monster.damageAnimation) {
-            ctx.fillStyle = "lightgray";
-            --monster.damageAnimation;
-        } else if (monster.slowdown) {
-            ctx.fillStyle = "lightblue";
-        } else {
-            ctx.fillStyle = "pink";
-        } 
+        this.setFillStyle(ctx);
         ctx.strokeStyle = "white";
         ctx.lineWidth = 2;
         ctx.fill();
         ctx.stroke();
-
-        ctx.restore();
-
-        // Plot pathfinding state.
-        // ctx.save();
-        // _(monster.path).each(function(cell) {
-        //     var x = cell[0];
-        //     var y = cell[1];
-        //     ctx.lineTo(x, y);
-        // });
-        // ctx.strokeStyle = "yellow";
-        // ctx.stroke();
-        // ctx.restore();
-
-        ctx.save();
-        ctx.beginPath();
-        ctx.translate(monster.x - halfcell, monster.y + halfcell);
-        ctx.moveTo(0, 0);
-        ctx.lineTo(cellsize * (monster.hp / monster.maxHp), 0);
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = "red";
-        ctx.stroke();
-        ctx.restore();
     };
 }
 
@@ -447,39 +456,15 @@ function BigWalker(x, y, path, waveFactor) {
     this.reward = 2;
     this.speed = 1.5;
 
-    this.draw = function(canvas, ctx) {
+    this.drawImpl = function(canvas, ctx) {
         var monster = this;
-        ctx.save();
 
-        ctx.beginPath();
-        ctx.translate(monster.x, monster.y);
         ctx.arc(0, 0, halfcell * 0.9 - 2, 0, 2*Math.PI);
-        if (monster.dead) {
-            ctx.fillStyle = "red";
-        } else if (monster.damageAnimation) {
-            ctx.fillStyle = "lightgray";
-            --monster.damageAnimation;
-        } else if (monster.slowdown) {
-            ctx.fillStyle = "lightblue";
-        } else {
-            ctx.fillStyle = "pink";
-        }
+        this.setFillStyle(ctx);
         ctx.strokeStyle = "white";
         ctx.lineWidth = 2;
         ctx.fill();
         ctx.stroke();
-
-        ctx.restore();
-
-        ctx.save();
-        ctx.beginPath();
-        ctx.translate(monster.x - halfcell, monster.y + halfcell);
-        ctx.moveTo(0, 0);
-        ctx.lineTo(cellsize * (monster.hp / monster.maxHp), 0);
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = "red";
-        ctx.stroke();
-        ctx.restore();
     };
 }
 
@@ -907,6 +892,10 @@ function updateMonster(monster, game) {
         return;
     }
 
+    if (monster.damageAnimation) {
+        --monster.damageAnimation;
+    }
+    
     var target = monster.path[monster.pathIndex];
     var speed = monster.speed;
     if (monster.slowdown) {
