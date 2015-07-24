@@ -69,7 +69,6 @@ function Plan(game) {
             this.commands[this.index].done = true;
         } catch (e) {            
             this.commands[this.index].skipped = true;
-            console.log(e);
         }
         this.index++;
         return true;
@@ -196,6 +195,9 @@ function Game() {
         }
         var tower = new klass(column(c), row(r));
         if (tower.cost > this.money) {
+            if (!this.towers.length) {
+                throw "Can never afford tower";
+            }
             return false;
         }
         this.tiles[r][c] = tower.background;
