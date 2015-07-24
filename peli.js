@@ -781,7 +781,7 @@ function MissileTower(x, y) {
     }
 
     this.beginShoot = function(game) {
-        // Shoots every 31 ticks for 50 in splash damage, might miss
+        // Shoots every 51 ticks for 30 in splash damage, might miss
         // target entirely.
         this.shootAnimation = 10;
         this.shootingAt = {
@@ -792,7 +792,7 @@ function MissileTower(x, y) {
 
     this.finishShoot = function() {
         this.explosionAnimation = 5;
-        this.cooldown = 20;
+        this.cooldown = 40;
     }
 
     this.inIdle = function() {
@@ -803,7 +803,7 @@ function MissileTower(x, y) {
         _(game.monsters).each(function (monster) {
             var d = distance(tower.shootingAt, monster);
             if (d < tower.explosionRange) {
-                monster.damage(game, 50);
+                monster.damage(game, 30);
             }
         });
     }
