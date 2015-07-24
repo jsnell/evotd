@@ -693,6 +693,10 @@ function PulseTower(x, y) {
         tower.cooldown = 20;
     }
 
+    this.finishCooldown = function(game) {
+        this.idleAnimation = 10;
+    }
+
     this.inIdle = function(game) {
         if (!this.idleAnimation) {
             this.idleAnimation = 10;
@@ -738,7 +742,7 @@ function PulseTower(x, y) {
             var r = cellsize +
                 (tower.range - cellsize) * (5 - tower.shootAnimation) / 5;
             ctx.arc(0, 0, r, 0, 2*Math.PI);
-        } else if (tower.idleAnimation) {
+        } else if (tower.idleAnimation && !tower.cooldown) {
             ctx.arc(0, 0, (halfcell - tower.idleAnimation) / 2, 0, 2*Math.PI);
         }
 
