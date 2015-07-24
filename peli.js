@@ -8,6 +8,10 @@ var waves = [
     [ { source: 2, type: Walker, count: 3, interval: 100 } ],
     [ { source: 0, type: BigWalker, count: 2, interval: 200 } ],
     [ { source: 2, type: BigWalker, count: 2, interval: 200 } ],
+    [ { source: 0, type: Tank, count: 1, interval: 100 } ],
+    [ { source: 2, type: Tank, count: 1, interval: 100 } ],
+    [ { source: 0, type: Speeder, count: 3, interval: 100 } ],
+    [ { source: 2, type: Speeder, count: 3, interval: 100 } ],
 ];
 
 function Plan(game) {
@@ -465,6 +469,83 @@ function BigWalker(x, y, path, waveFactor) {
         this.setFillStyle(ctx);
         ctx.strokeStyle = "white";
         ctx.lineWidth = 2;
+        ctx.fill();
+        ctx.stroke();
+    };
+}
+
+function Tank(x, y, path, waveFactor) {
+    Monster.call(this, x, y, path);
+
+    this.hp = this.maxHp = 1000 * waveFactor;
+    this.reward = 10;
+    this.speed = 0.5;
+
+    this.drawImpl = function(canvas, ctx) {
+        var monster = this;
+        var target = monster.path[monster.pathIndex];
+        var angle = target ? angleFrom(monster, { x: target[0], y: target[1] }) : 0;
+        
+        ctx.rotate(angle + Math.PI / 2);
+
+        ctx.lineWidth = halfcell / 3;
+        ctx.strokeStyle = 'black';
+
+        ctx.beginPath();
+        for (var i = 0; i < 5; ++i) {
+            ctx.moveTo(-halfcell + cellsize * (i / 5), -halfcell * 0.8);
+            ctx.lineTo(-halfcell + cellsize * (i / 5), halfcell * 0.8);
+        }
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(halfcell / 2, -halfcell / 2);
+        ctx.lineTo(halfcell, 0);
+        ctx.lineTo(halfcell / 2, halfcell / 2);
+        ctx.lineTo(-halfcell, halfcell / 2);
+        ctx.lineTo(-halfcell, -halfcell / 2);
+        this.setFillStyle(ctx);
+        ctx.strokeStyle = "white";
+        ctx.lineWidth = 2;
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+    };
+}
+
+function Speeder(x, y, path, waveFactor) {
+    Monster.call(this, x, y, path);
+
+    this.hp = this.maxHp = 100 * waveFactor;
+    this.reward = 10;
+    this.speed = 5.0;
+
+    this.drawImpl = function(canvas, ctx) {
+        var monster = this;
+        var target = monster.path[monster.pathIndex];
+        var angle = target ? angleFrom(monster, { x: target[0], y: target[1] }) : 0;
+        
+        ctx.rotate(angle + Math.PI / 2);
+        ctx.lineWidth = halfcell / 3;
+        ctx.strokeStyle = 'black';
+
+        ctx.beginPath();
+        ctx.moveTo(-halfcell * 0.5, -halfcell * 0.8);
+        ctx.lineTo(-halfcell * 0.5, halfcell * 0.8);
+        ctx.moveTo(halfcell * 0.5, -halfcell * 0.8);
+        ctx.lineTo(halfcell * 0.5, halfcell * 0.8);
+        ctx.stroke();
+        
+        ctx.beginPath();
+        ctx.lineTo(-halfcell * 0.9, halfcell / 2);
+        ctx.lineTo(halfcell * 0.9, halfcell / 4);
+        ctx.lineTo(halfcell * 0.9, -halfcell / 4);
+        ctx.lineTo(-halfcell * 0.9, -halfcell / 2);
+        this.setFillStyle(ctx);
+        ctx.strokeStyle = "white";
+        ctx.lineWidth = 2;
+        ctx.closePath();
         ctx.fill();
         ctx.stroke();
     };
