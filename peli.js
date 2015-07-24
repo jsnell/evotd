@@ -97,10 +97,10 @@ function Plan(game) {
 
 function Game() {
     this.plan = new Plan(this);
-    this.monsters = _([]);
-    this.towers = _([]);
-    this.spawnPoints = _([]);
-    this.bullets = _([]);
+    this.monsters = [];
+    this.towers = [];
+    this.spawnPoints = [];
+    this.bullets = [];
     this.tiles = {};
     this.monsterDeaths = 0;
     this.monsterWins = 0;
@@ -145,7 +145,7 @@ function Game() {
         }
         var wave = waves[this.waveIndex++ % waves.length];
         this.wave = wave;
-        this.spawnPoints.each(function (sp, index) {
+        _(this.spawnPoints).each(function (sp, index) {
             console.assert(sp.state == 2);
             _(wave).each(function(wave_sp) {
                 if (index == wave_sp.source) {
@@ -164,11 +164,11 @@ function Game() {
             updateMonster(monster, game);
             return !(monster.win || monster.dead);
         }));
-        this.towers.each(function (tower) {
+        _(this.towers).each(function (tower) {
             tower.update(game);
         });
         var wave_done = this.monsters.size() == 0;
-        this.spawnPoints.each(function (sp, index) {
+        _(this.spawnPoints).each(function (sp, index) {
             if (sp.state != 2) {
                 wave_done = false;
             }
@@ -182,10 +182,10 @@ function Game() {
     this.draw = function (canvas, ctx) {
         this.plan.draw();
         drawMap(canvas, ctx);
-        this.monsters.each(function (monster) {
+        _(this.monsters).each(function (monster) {
             monster.draw(canvas, ctx);
         });
-        this.towers.each(function (tower) {
+        _(this.towers).each(function (tower) {
             tower.draw(canvas, ctx);
         });
     };
@@ -200,14 +200,14 @@ function Game() {
         }
         this.tiles[r][c] = tower.background;
         try {
-            this.spawnPoints.each(function (sp) {
+            _(this.spawnPoints).each(function (sp) {
                 sp.recomputePath();
             });
         } catch (e) {
             // Undo blocking this tile
             this.tiles[r][c] = 0;
             // Redo the paths
-            this.spawnPoints.each(function (sp) {
+            _(this.spawnPoints).each(function (sp) {
                 sp.recomputePath();
             });
             throw e;
@@ -685,7 +685,7 @@ function PulseTower(x, y) {
         // Shoots every 26 ticks for 100 in splash damage, might miss
         // target entirely.
         var tower = this;
-        game.monsters.each(function (monster) {
+        _(game.monsters).each(function (monster) {
             if (tower.inRange(monster)) {
                 monster.damage(game, 100);
             }
@@ -925,7 +925,7 @@ function distance(a, b) {
 function findClosest(object, list) {
     var best = null;
     var best_d = null;
-    list.each(function (other) {
+    _(list).each(function (other) {
         var d = distance(object, other);
         if (best == null || d < best_d) {
             best = other;
