@@ -989,10 +989,15 @@ function updateMonster(monster, game) {
         speed *= 0.5;
         monster.slowdown--;
     }
-    var xd = clamp(target[0] - monster.x, -speed, speed);
-    var yd = clamp(target[1] - monster.y, -speed, speed);
-    monster.x += xd;
-    monster.y += yd;
+    var xd = target[0] - monster.x;
+    var yd = target[1] - monster.y;
+    var total = (xd + yd);
+    if (total != 0) {
+        var xdmax = speed * (xd / total);
+        var ydmax = speed * (yd / total);
+        monster.x += clamp(xd, -xdmax, xdmax);
+        monster.y += clamp(yd, -ydmax, ydmax);
+    }
     if (Math.floor(monster.x) == target[0] &&
         Math.floor(monster.y) == target[1]) {
         monster.pathIndex += 1;
