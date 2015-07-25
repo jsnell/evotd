@@ -114,6 +114,7 @@ function Game() {
     this.waveIndex = 0;
     this.wave = null;
     this.gameOver = false;
+    this.score = 0;
 
     for (var r = 0; r < rows; r++) {
         this.tiles[r] = {};
@@ -148,6 +149,7 @@ function Game() {
         do {
             this.updateStatus();
         } while (this.plan.maybeExecuteNext());
+        this.score += this.waveIndex * 100;
         var wave = waves[this.waveIndex++ % waves.length];
         this.wave = wave;
         _(this.spawnPoints).each(function (sp, index) {
@@ -268,14 +270,16 @@ function Game() {
         monster.dead = true;
         this.monsterDeaths++;
         this.money += monster.reward;
+        this.score += this.waveIndex;
         this.updateStatus();
     };
 
     this.updateStatus = function () {
         var game = this;
-        var text = this.hp + " health / " +
-            "$" + this.money + " / wave " +
-            this.waveIndex;
+        var text = "$" + this.money +
+            ", health: " + this.hp +
+            ", wave: " + this.waveIndex + 
+            ", score: " + this.score;
         $('#status').each(function(index, elem) {
             elem.innerText = text;
             if (game.onStatus) {
