@@ -108,7 +108,7 @@ function Game() {
     this.bullets = [];
     this.tiles = {};
     this.monsterDeaths = 0;
-    this.monsterWins = 0;
+    this.hp = 20;
     this.money = 10;
     this.callback = null;
     this.waveIndex = 0;
@@ -145,9 +145,9 @@ function Game() {
     };
     
     this.newWave = function() {
-        while (this.plan.maybeExecuteNext()) {
-            // Execute stuff.
-        }
+        do {
+            this.updateStatus();
+        } while (this.plan.maybeExecuteNext());
         var wave = waves[this.waveIndex++ % waves.length];
         this.wave = wave;
         _(this.spawnPoints).each(function (sp, index) {
@@ -185,6 +185,19 @@ function Game() {
     };
 
     this.draw = function (canvas, ctx) {
+        if (this.gameOver) {
+            ctx.save();
+            ctx.scale(canvas.width / 300,
+                      canvas.height / 300);
+            ctx.font = "40px Sans";
+            ctx.lineWidth = 2;
+            ctx.fillStyle = "red";
+            ctx.strokeStyle = "black";
+            ctx.fillText("GAME OVER", 20, 33);
+            ctx.strokeText("GAME OVER", 20, 33);
+            ctx.restore();
+            return;
+        }
         this.plan.draw();
         drawMap(canvas, ctx);
         _(this.monsters).each(function (monster) {
@@ -237,9 +250,9 @@ function Game() {
 
     this.monsterWin = function(monster) {
         monster.win = true;
-        this.monsterWins++;
+        this.hp--;
         this.updateStatus();
-        if (this.monsterWins >= 20) {
+        if (this.hp <= 0) {
             this.gameOver = true;
             if (this.onGameOver) {
                 this.onGameOver();
@@ -260,8 +273,7 @@ function Game() {
 
     this.updateStatus = function () {
         var game = this;
-        var text = this.monsterDeaths + " dead / " +
-            this.monsterWins + " through / " +
+        var text = this.hp + " health / " +
             "$" + this.money + " / wave " +
             this.waveIndex;
         $('#status').each(function(index, elem) {
