@@ -4,6 +4,8 @@ var rows = 12;
 var cols = 20;
 
 var waves = [
+    [ { source: 0, type: Flier, count: 3, interval: 100 } ],
+    [ { source: 2, type: Flier, count: 3, interval: 100 } ],
     [ { source: 0, type: Walker, count: 3, interval: 100 } ],
     [ { source: 2, type: Walker, count: 3, interval: 100 } ],
     [ { source: 0, type: BigWalker, count: 2, interval: 200 } ],
@@ -432,7 +434,9 @@ function Monster(x, y, path) {
             ctx.fillStyle = this.baseColor;
         } 
     }
-    
+
+    this.beforeUpdate = function (game) {}
+
     return this;
 }
 
@@ -548,6 +552,50 @@ function Speeder(x, y, path, waveFactor) {
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
+    };
+}
+
+function Flier(x, y, path, waveFactor) {
+    Monster.call(this, x, y, path);
+
+    // Just head straight to the final path node
+    this.path = [path[path.length - 1]];
+    this.hp = this.maxHp = 30 * waveFactor;
+    this.reward = 10;
+    this.speed = 2.0;
+    this.rotorAngle = 0;
+
+    this.beforeUpdate = function(game) {
+        this.rotorAngle += 0.5;
+    }
+
+    this.drawImpl = function(canvas, ctx) {
+        var monster = this;
+        var target = monster.path[monster.pathIndex];
+        var angle = target ? angleFrom(monster, { x: target[0], y: target[1] }) : 0;
+        ctx.rotate(angle + Math.PI / 2);
+        
+        ctx.beginPath();
+        ctx.arc(0, 0, halfcell * 0.9, -0.5, 0.5);
+        ctx.arc(0, 0, halfcell * 0.9, Math.PI-0.4, Math.PI+0.4);
+        this.setFillStyle(ctx);
+        ctx.strokeStyle = "white";
+        ctx.lineWidth = 2;
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.rotate(this.rotorAngle);
+        var rotorSize = halfcell * 0.8;
+        ctx.moveTo(0, 0); ctx.lineTo(rotorSize, 0);
+        ctx.moveTo(0, 0); ctx.lineTo(-rotorSize, 0);
+        ctx.moveTo(0, 0); ctx.lineTo(0, rotorSize);
+        ctx.moveTo(0, 0); ctx.lineTo(0, -rotorSize);
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = "black";
+        ctx.stroke();
+        
     };
 }
 
@@ -974,6 +1022,8 @@ function clamp(value, min, max) {
 }
 
 function updateMonster(monster, game) {
+    monster.beforeUpdate(game);
+
     if (monster.pathIndex == monster.path.length) {
         game.monsterWin(monster);
         return;
