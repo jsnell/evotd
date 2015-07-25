@@ -373,6 +373,9 @@ function SpawnPoint(game, c, r, goal) {
             var cell = queued.shift();
             visit(cell[0], cell[1], cell[2]);
         }
+        if (result.length == 0) {
+            throw "No path found";
+        }
         this.path = result.reverse();
     }
 }
