@@ -1,0 +1,48 @@
+ul#plan {
+    height:480;
+    margin: 0px;
+    vertical-align: top;
+    overflow: scroll;
+    width: 200;
+    display: inline-block;
+    overflow-y: scroll;
+    overflow-x: hidden;
+}
+
+li.cmd-current {
+    background-color: #ccffcc;
+    list-style-type: arrow;
+}
+
+li.cmd {
+    list-style-type: none;
+}
+
+li.cmd-done {
+    color: #888;
+    list-style-type: none;
+}
+
+li.cmd-skipped {
+    color: #800;
+    list-style-type: none;
+}
+
+div#currentgen-stats {
+    width: 250px;
+    style: block-inline;
+    font-size: 80%;
+    whitespace: nowrap;
+}
+
+div#allgens-stats {
+    width: 250px;
+    style: block-inline;
+    font-size: 80%;
+    whitespace: nowrap;
+}
+
+button {
+    vertical-align: top;
+}
+
