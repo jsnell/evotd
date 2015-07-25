@@ -751,7 +751,7 @@ function GunTower(x, y) {
 
         ctx.restore();
     }
-    
+
     return this;
 }
 
@@ -852,6 +852,12 @@ function PulseTower(x, y) {
             this.idleAnimation = 10;
         } else {
             this.idleAnimation -= 1;
+        }
+    }
+
+    this.trackTarget = function(game) {
+        if (!this.cooldown && this.target && this.inRange(this.target)) {
+            this.beginShoot(game);
         }
     }
 
