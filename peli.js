@@ -1080,17 +1080,21 @@ function updateMonster(monster, game) {
     }
 }
 
-function distance(a, b) {
+function distance_squared(a, b) {
     var xd = a.x - b.x;
     var yd = a.y - b.y;
-    return Math.sqrt(xd * xd + yd * yd);
+    return xd * xd + yd * yd;
+}
+
+function distance(a, b) {
+    return Math.sqrt(distance_squared(a, b));
 }
 
 function findClosest(object, list) {
     var best = null;
     var best_d = null;
     _(list).each(function (other) {
-        var d = distance(object, other);
+        var d = distance_squared(object, other);
         if (best == null || d < best_d) {
             best = other;
             best_d = d;
