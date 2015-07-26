@@ -1041,6 +1041,7 @@ function drawMap(canvas, ctx) {
 }
 
 function clamp(value, min, max) {
+    if (min > max) { var tmp = min; min = max; max = tmp; }
     if (value < min) { return min }
     if (value > max) { return max }
     return value;
@@ -1066,7 +1067,7 @@ function updateMonster(monster, game) {
     }
     var xd = target[0] - monster.x;
     var yd = target[1] - monster.y;
-    var total = (xd + yd);
+    var total = Math.abs(xd) + Math.abs(yd);
     if (total != 0) {
         var xdmax = speed * (xd / total);
         var ydmax = speed * (yd / total);
