@@ -925,12 +925,23 @@ function MissileTower(x, y) {
     this.explosionRange = cellsize * 0.75;
     this.cost = 20;
     this.turnSpeed = 0.1;
+    this.flash = false;
+    this.flashCounter = 10;
     
     this.beforeUpdate = function(game) {
         if (this.explosionAnimation > 0) {
             if (!--this.explosionAnimation) {
                 this.finishExplosion(game);
             }
+        }
+        this.flashCounter -= 1;
+        if (this.flashCounter == 0) {
+            if (this.flash) {
+                this.flash = false;
+            } else {
+                this.flash = true;
+            }
+            this.flashCounter = 10;
         }
     }
 
@@ -969,18 +980,51 @@ function MissileTower(x, y) {
 
     this.draw = function(canvas, ctx) {
         var tower = this;
+
         ctx.save();
+
+        ctx.beginPath();
+        ctx.translate(tower.x, tower.y);
+        ctx.rotate(tower.angle);
+        ctx.scale(halfcell / 10, halfcell / 10);
+
+        // Right side of turret 
+        ctx.arc(-2, 0, 7, 0.5 * Math.PI, 1.5*Math.PI);
+        ctx.fillStyle = "darkgray";
+        ctx.strokeStyle = "black";
+        ctx.lineWidth = 1;
+        ctx.fill();
+        ctx.stroke();
+
+        // Left side of turret 
+        ctx.save();
+        ctx.beginPath();
+        ctx.rotate(1 * Math.PI);
+        ctx.arc(-2, 0, 7, 0.5 * Math.PI, 1.5*Math.PI);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+
+        // A launch strip in a darker color in between
+        ctx.beginPath();
+        ctx.moveTo(-2, -7);
+        ctx.lineTo(-2, 7);
+        ctx.lineTo(2, 7);
+        ctx.lineTo(2, -7);
+        ctx.closePath();
+        ctx.fillStyle = '#3D3D5C';
+        ctx.fill();
+        ctx.restore();
+
+        // Finally, draw the missile, either on the launch pad, in air
+        // or having exploded.
         if (tower.shootAnimation) {
             ctx.beginPath();
             var dx = tower.shootingAt.x - tower.x;
             var dy = tower.shootingAt.y - tower.y;
-            ctx.arc(tower.x + dx * (10 - tower.shootAnimation) / 10,
-                    tower.y + dy * (10 - tower.shootAnimation) / 10,
-                    cellsize / 10,
-                    0,
-                    2 * Math.PI);
-            ctx.fillStyle = 'white';
-            ctx.fill();
+            var x = tower.x + dx * (10 - tower.shootAnimation) / 10;
+            var y = tower.y + dy * (10 - tower.shootAnimation) / 10;
+            this.drawMissile(ctx, x, y, true);
         } else if (tower.explosionAnimation) {
             ctx.beginPath();
             ctx.arc(tower.shootingAt.x,
@@ -990,28 +1034,56 @@ function MissileTower(x, y) {
                     2 * Math.PI);
             ctx.fillStyle = 'orange';
             ctx.fill();
+        } else {
+            this.drawMissile(ctx, this.x, this.y);
         }
+    }
 
-        ctx.restore();
-
+    this.drawMissile = function(ctx, x, y, flames) {
         ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(this.angle);
+        ctx.scale(halfcell / 10, halfcell / 10);
 
+        // Missile
         ctx.beginPath();
-        ctx.translate(tower.x, tower.y);
-        ctx.rotate(tower.angle);
-        ctx.arc(0, 0, halfcell * 0.9, 0, 2*Math.PI);
-        ctx.fillStyle = "darkgray";
-        ctx.strokeStyle = "black";
-        ctx.lineWidth = 2;
+        ctx.moveTo(2, -4);
+        ctx.lineTo(2, 9);
+        ctx.lineTo(0, 13);
+        ctx.lineTo(-2, 9);
+        ctx.lineTo(-2, -4);
+        ctx.closePath();
+        ctx.fillStyle = "black";
         ctx.fill();
+        ctx.strokeStyle = "white";
+        ctx.lineWidth = 0.5;        
         ctx.stroke();
 
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.lineTo(0, halfcell * 1.5);
-        ctx.lineWidth = 5;
-        ctx.stroke();
-
+        if (this.shootAnimation) {
+            // Exhaust plumes.
+            ctx.beginPath();
+            ctx.moveTo(2, -4);
+            ctx.lineTo(1, -7);
+            ctx.lineTo(0, -8 - (10 - this.shootAnimation));
+            ctx.lineTo(-1, -7);
+            ctx.lineTo(-2, -4);
+            ctx.closePath();
+            ctx.fillStyle = "orange";
+            ctx.fill();
+        } else {
+            // Blinking go-faster stripes, as demanded by the 9 years old
+            // graphics director.
+            ctx.beginPath();
+            ctx.moveTo(0, -2);
+            ctx.lineTo(0, 6);
+            ctx.lineWidth = 1;
+            if (this.flash) {
+                ctx.strokeStyle = '#ff5555';
+            } else {
+                ctx.strokeStyle = 'white';
+            }
+            ctx.stroke();
+        }
         ctx.restore();
     }
     
