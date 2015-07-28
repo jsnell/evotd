@@ -717,7 +717,6 @@ function Tower(x, y) {
     }
 
     this.inIdle = function(game) {
-        this.turnToAngle(game, 0);
     }
 }
 
