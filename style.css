@@ -3,14 +3,24 @@ ul#plan {
     margin: 0px;
     vertical-align: top;
     overflow: scroll;
-    width: 200;
+    width: 300;
     display: inline-block;
     overflow-y: scroll;
     overflow-x: hidden;
 }
 
+ul#plan li {
+    border-width: 5px;
+}
+
 li.cmd-current {
     background-color: #ccffcc;
+    list-style-type: arrow;
+}
+
+li.cmd-selected {
+    color: #fff;
+    background-color: #000088;
     list-style-type: arrow;
 }
 

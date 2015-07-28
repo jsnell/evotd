@@ -35,6 +35,8 @@ function WithContext(ctx, params, fun) {
 }
 
 function Plan(game) {
+    var plan = this;
+
     this.game = game
     this.commands = [];
     this.index = 0;
@@ -45,11 +47,10 @@ function Plan(game) {
     };
 
     this.addCommand = function(command) {
-        var fun = this.parse(command);
-        this.commands.push({ command: command,
-                             fun: fun,
-                             done: false,
-                             skipped: false });
+        var record = this.parse(command);
+        record.done = false;
+        record.skipped = false;
+        this.commands.push(record);
     };
 
     this.parse = function(command) {
@@ -77,7 +78,39 @@ function Plan(game) {
             };
             var c = parseInt(tokens.shift());
             var r = parseInt(tokens.shift());
-            return function(game) { return game.addTower(c, r, type); }
+            var record = { command: command,
+                           fun: function(game) {
+                               return game.addTower(c, r, type);
+                           },
+                           row: r,
+                           col: c
+                         };
+            record.elem = $('<li/>', {
+                'class': 'cmd'
+            }).on('drop', function (event) {
+                event.preventDefault();
+                plan.moveBefore(plan.dragRecord, record);
+                return true;
+            }).on('dragover', function (event) {
+                if (record.skipped || record.done) {
+                    return false;
+                }
+                event.preventDefault();
+                plan.highlightBefore(record);
+                return true;
+            }).append($('<div/>', {
+                draggable: true,
+                text: command
+            }).on('dragstart', function (event) {
+                plan.dragRecord = record;
+                return true;
+            }).on('dragend', function (event) {
+                plan.dragRecord = null;
+                plan.highlightBefore(null);
+                return true;
+            }))[0];
+            $('#plan').append(record.elem);
+            return record;
         }
         throw "Unknown command " + cmd;
     };
@@ -91,29 +124,60 @@ function Plan(game) {
                 return false;
             }
             this.commands[this.index].done = true;
-        } catch (e) {            
+        } catch (e) {
             this.commands[this.index].skipped = true;
         }
+        this.setCommandClass(this.commands[this.index]);
         this.index++;
+        this.setCommandClass(this.commands[this.index]);
         return true;
     };
 
-    this.draw = function() {
-        var elem = $('#plan');
-        elem.text('');
-        var currentIndex = this.index;
-        _(this.commands).each(function (command, index) {
-            var style = 'cmd';
-            if (command.done) {
-                style = 'cmd-done';
-            } else if (command.skipped) {
-                style = 'cmd-skipped';
-            } else if (index == currentIndex) {
-                style = 'cmd-current'; 
-           }
-            elem.append('<li class=' + style + '> ' + command.command);
+    this.highlightBefore = function(current) {
+        $('#plan li').each(function (index, elem) {
+            if (current && current.elem === elem) {
+                elem.style.borderStyle = "solid none none none";
+            } else {
+                elem.style.borderStyle = "none";
+            }
         });
-    };
+    }
+    
+    this.moveBefore = function(record, beforeRecord) {
+        var prev;
+        var next;
+        var commands = plan.commands;
+
+        // Can't rearrange commands that have already been executed.
+        if (record.done || record.skipped ||
+            beforeRecord.done || beforeRecord.skipped) {
+            return;
+        }
+
+        var recordIndex = commands.indexOf(record);
+        commands.splice(recordIndex, 1);
+        var beforeRecordIndex = commands.indexOf(beforeRecord);
+        commands.splice(beforeRecordIndex, 0, record);
+        
+        var elems = $('#plan li.cmd');
+        elems.detach();
+        $('#plan').append(_(commands).map(function (record) {
+            plan.setCommandClass(record);
+            return record.elem;
+        }));
+    }
+
+    this.setCommandClass = function(record) {
+        var classes = ['cmd'];
+        if (record.done) {
+            classes.push('cmd-done');
+        } else if (record.skipped) {
+            classes.push('cmd-skipped');
+        } else if (record === plan.commands[plan.index]) {
+            classes.push('cmd-current');
+        }
+        record.elem.className = classes.join(' ');
+    }
     
     return this;
 }
@@ -218,10 +282,24 @@ function Game() {
             ctx.restore();
             return;
         }
-        this.plan.draw();
+
         drawMap(canvas, ctx);
+        _(this.plan.commands).each(function (record) {
+            if (!(record.done || record.skipped)) {
+                WithContext(ctx, { translateX: column(record.col),
+                                   translateY: row(record.row) },
+                            function() {
+                                ctx.fillStyle = "blue";
+                                ctx.fillRect(-cellsize / 8, -cellsize / 8,
+                                             cellsize / 4, cellsize / 4);
+                            });
+            }
+        });
         _(this.towers).each(function (tower) {
             tower.draw(canvas, ctx);
+        });
+        _(this.monsters).each(function (monster) {
+            monster.draw(canvas, ctx);
         });
         _(this.monsters).each(function (monster) {
             monster.draw(canvas, ctx);
