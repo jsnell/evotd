@@ -656,14 +656,18 @@ function Tower(x, y) {
     this.finishCooldown = function(game) {}
     this.inCooldown = function(game) {}
 
+    this.validTarget = function(target) {
+        return target && this.inRange(target) &&
+            !(target.dead || target.win)
+    }
+
     this.acquireTarget = function(game) {
-        if (this.target && this.inRange(this.target) &&
-            !(this.target.dead || this.target.win)) {
+        if (this.validTarget(this.target)) {
             return true;
         } else {
             this.target = findClosest(this, game.monsters);
         }
-        return false;
+        return this.validTarget(this.target);
     }
 
     this.inRange = function (object) {
