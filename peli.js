@@ -6,14 +6,14 @@ var cols = 20;
 var waves = [
     [ { source: 0, type: Flier, count: 3, interval: 100 } ],
     [ { source: 2, type: Flier, count: 3, interval: 100 } ],
-    [ { source: 0, type: Walker, count: 3, interval: 100 } ],
-    [ { source: 2, type: Walker, count: 3, interval: 100 } ],
-    [ { source: 0, type: BigWalker, count: 2, interval: 200 } ],
-    [ { source: 2, type: BigWalker, count: 2, interval: 200 } ],
     [ { source: 0, type: Tank, count: 1, interval: 100 } ],
     [ { source: 2, type: Tank, count: 1, interval: 100 } ],
     [ { source: 0, type: Speeder, count: 3, interval: 100 } ],
     [ { source: 2, type: Speeder, count: 3, interval: 100 } ],
+    [ { source: 0, type: Walker, count: 3, interval: 100 } ],
+    [ { source: 2, type: Walker, count: 3, interval: 100 } ],
+    [ { source: 0, type: BigWalker, count: 2, interval: 200 } ],
+    [ { source: 2, type: BigWalker, count: 2, interval: 200 } ],
 ];
 
 function WithContext(ctx, params, fun) {
@@ -435,21 +435,24 @@ function Monster(x, y, path) {
     };
 
     this.draw = function(canvas, ctx) {
-        WithContext(ctx, { translateX: monster.x, translateY: monster.y },
+        WithContext(ctx, { translateX: monster.x, translateY: monster.y,
+                           scale: halfcell / 10 },
                     function () {
                         monster.drawHP(canvas, ctx);
+
                         ctx.beginPath();
                         monster.drawImpl(canvas, ctx);
                     });
     }
 
     this.drawHP = function(canvas, ctx) {
-        WithContext(ctx, { translateX: -halfcell, translateY: halfcell },
+        WithContext(ctx, { translateX: -10, translateY: 10, },
                     function () {
                         ctx.beginPath();
                         ctx.moveTo(0, 0);
-                        ctx.lineTo(cellsize * (this.hp / this.maxHp), 0);
-                        ctx.lineWidth = 3;
+                        var hpratio = monster.hp / monster.maxHp;
+                        ctx.lineTo(20 * Math.max(0, hpratio), 0);
+                        ctx.lineWidth = 2;
                         ctx.strokeStyle = "red";
                         ctx.stroke();
                     });
@@ -482,10 +485,10 @@ function Walker(x, y, path, waveFactor) {
     this.drawImpl = function(canvas, ctx) {
         var monster = this;
 
-        ctx.arc(0, 0, halfcell * 0.5 - 2, 0, 2*Math.PI);
+        ctx.arc(0, 0, 5, 0, 2*Math.PI);
+        ctx.lineWidth = 1;
         this.setFillStyle(ctx);
         ctx.strokeStyle = "white";
-        ctx.lineWidth = 2;
         ctx.fill();
         ctx.stroke();
     };
@@ -501,10 +504,10 @@ function BigWalker(x, y, path, waveFactor) {
     this.drawImpl = function(canvas, ctx) {
         var monster = this;
 
-        ctx.arc(0, 0, halfcell * 0.9 - 2, 0, 2*Math.PI);
+        ctx.arc(0, 0, 8, 0, 2*Math.PI);
+        ctx.lineWidth = 1;
         this.setFillStyle(ctx);
         ctx.strokeStyle = "white";
-        ctx.lineWidth = 2;
         ctx.fill();
         ctx.stroke();
     };
@@ -524,29 +527,31 @@ function Tank(x, y, path, waveFactor) {
         
         ctx.rotate(angle + Math.PI / 2);
 
-        ctx.lineWidth = halfcell / 3;
-        ctx.strokeStyle = 'black';
+        WithContext(ctx, {}, function () {
+            ctx.beginPath();
+            for (var i = -8; i < 8 ; i += 3.5) {
+                ctx.moveTo(i, -8);
+                ctx.lineTo(i, 8);
+                console.log(i);
+            }
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = 'black';
+            ctx.stroke();
+        });
 
         ctx.beginPath();
-        for (var i = 0; i < 5; ++i) {
-            ctx.moveTo(-halfcell + cellsize * (i / 5), -halfcell * 0.8);
-            ctx.lineTo(-halfcell + cellsize * (i / 5), halfcell * 0.8);
-        }
-        ctx.stroke();
+        ctx.moveTo(6, -5);
+        ctx.lineTo(10, 0);
+        ctx.lineTo(6, 5);
+        ctx.lineTo(-10, 5);
+        ctx.lineTo(-10, -5);
+        ctx.closePath();
 
-        ctx.beginPath();
-        ctx.moveTo(halfcell / 2, -halfcell / 2);
-        ctx.lineTo(halfcell, 0);
-        ctx.lineTo(halfcell / 2, halfcell / 2);
-        ctx.lineTo(-halfcell, halfcell / 2);
-        ctx.lineTo(-halfcell, -halfcell / 2);
+        ctx.lineWidth = 1;
         this.setFillStyle(ctx);
         ctx.strokeStyle = "white";
-        ctx.lineWidth = 2;
-        ctx.closePath();
         ctx.fill();
         ctx.stroke();
-
     };
 }
 
@@ -563,25 +568,26 @@ function Speeder(x, y, path, waveFactor) {
         var angle = target ? angleFrom(monster, { x: target[0], y: target[1] }) : 0;
         
         ctx.rotate(angle + Math.PI / 2);
-        ctx.lineWidth = halfcell / 3;
+        ctx.lineWidth = 2.5;
         ctx.strokeStyle = 'black';
 
         ctx.beginPath();
-        ctx.moveTo(-halfcell * 0.5, -halfcell * 0.8);
-        ctx.lineTo(-halfcell * 0.5, halfcell * 0.8);
-        ctx.moveTo(halfcell * 0.5, -halfcell * 0.8);
-        ctx.lineTo(halfcell * 0.5, halfcell * 0.8);
+        ctx.moveTo(-5, -8);
+        ctx.lineTo(-5, 8);
+        ctx.moveTo(5, -8);
+        ctx.lineTo(5, 8);
         ctx.stroke();
         
         ctx.beginPath();
-        ctx.lineTo(-halfcell * 0.9, halfcell / 2);
-        ctx.lineTo(halfcell * 0.9, halfcell / 4);
-        ctx.lineTo(halfcell * 0.9, -halfcell / 4);
-        ctx.lineTo(-halfcell * 0.9, -halfcell / 2);
+        ctx.lineTo(-9, 5);
+        ctx.lineTo(9, 2.5);
+        ctx.lineTo(9, -2.5)
+        ctx.lineTo(-9, -5);
+        ctx.closePath();
+
+        ctx.lineWidth = 1;
         this.setFillStyle(ctx);
         ctx.strokeStyle = "white";
-        ctx.lineWidth = 2;
-        ctx.closePath();
         ctx.fill();
         ctx.stroke();
     };
@@ -608,23 +614,23 @@ function Flier(x, y, path, waveFactor) {
         ctx.rotate(angle + Math.PI / 2);
         
         ctx.beginPath();
-        ctx.arc(0, 0, halfcell * 0.9, -0.5, 0.5);
-        ctx.arc(0, 0, halfcell * 0.9, Math.PI-0.4, Math.PI+0.4);
+        ctx.arc(0, 0, 9, -0.5, 0.5);
+        ctx.arc(0, 0, 9, Math.PI-0.4, Math.PI+0.4);
         this.setFillStyle(ctx);
         ctx.strokeStyle = "white";
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 1;
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
 
         ctx.beginPath();
         ctx.rotate(this.rotorAngle);
-        var rotorSize = halfcell * 0.8;
+        var rotorSize = 8;
         ctx.moveTo(0, 0); ctx.lineTo(rotorSize, 0);
         ctx.moveTo(0, 0); ctx.lineTo(-rotorSize, 0);
         ctx.moveTo(0, 0); ctx.lineTo(0, rotorSize);
         ctx.moveTo(0, 0); ctx.lineTo(0, -rotorSize);
-        ctx.lineWidth = 4;
+        ctx.lineWidth = 2;
         ctx.strokeStyle = "black";
         ctx.stroke();
         
