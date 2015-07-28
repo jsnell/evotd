@@ -532,7 +532,6 @@ function Tank(x, y, path, waveFactor) {
             for (var i = -8; i < 8 ; i += 3.5) {
                 ctx.moveTo(i, -8);
                 ctx.lineTo(i, 8);
-                console.log(i);
             }
             ctx.lineWidth = 3;
             ctx.strokeStyle = 'black';
