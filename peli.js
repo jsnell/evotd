@@ -755,20 +755,21 @@ function GunTower(x, y) {
         }
 
         WithContext(ctx, { translateX: tower.x, translateY: tower.y,
+                           scale: halfcell / 10,
                            rotate: tower.angle },
                     function () {
                         ctx.beginPath();
-                        ctx.arc(0, 0, halfcell * 0.9, 0, 2*Math.PI);
+                        ctx.arc(0, 0, 9, 0, 2*Math.PI);
                         ctx.fillStyle = "darkgray";
                         ctx.strokeStyle = "black";
-                        ctx.lineWidth = 2;
+                        ctx.lineWidth = 1;
                         ctx.fill();
                         ctx.stroke();
 
                         ctx.beginPath();
                         ctx.moveTo(0, 0);
-                        ctx.lineTo(0, halfcell * 1.5);
-                        ctx.lineWidth = 5;
+                        ctx.lineTo(0, 15);
+                        ctx.lineWidth = 3;
                         ctx.stroke();
                     });
     }
@@ -809,21 +810,22 @@ function SlowTower(x, y) {
         }
 
         WithContext(ctx, { translateX: tower.x, translateY: tower.y,
+                           scale: halfcell / 10,
                            rotate: tower.angle },
                     function () {
                         ctx.beginPath();
-                        ctx.arc(0, 0, halfcell * 0.9, 0, 2*Math.PI);
+                        ctx.arc(0, 0, 9, 0, 2*Math.PI);
                         ctx.fillStyle = "darkgray";
                         ctx.strokeStyle = "black";
-                        ctx.lineWidth = 2;
+                        ctx.lineWidth = 1;
                         ctx.fill();
                         ctx.stroke();
 
                         ctx.beginPath();
-                        ctx.moveTo(halfcell * 0.1, 0);
-                        ctx.lineTo(halfcell * 0.4, halfcell * 1.2);
-                        ctx.lineTo(halfcell * -0.4, halfcell * 1.2);
-                        ctx.lineTo(halfcell * -0.1, 0);
+                        ctx.moveTo(1, 0);
+                        ctx.lineTo(4, 12);
+                        ctx.lineTo(-4, 12);
+                        ctx.lineTo(-1, 0);
                         ctx.fillStyle = "black";
                         ctx.closePath();
                         ctx.fill();
