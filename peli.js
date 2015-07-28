@@ -1038,7 +1038,7 @@ function MissileTower(x, y) {
                     2 * Math.PI);
             ctx.fillStyle = 'orange';
             ctx.fill();
-        } else {
+        } else if (!this.cooldown) {
             this.drawMissile(ctx, this.x, this.y);
         }
     }
