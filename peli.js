@@ -16,6 +16,24 @@ var waves = [
     [ { source: 2, type: Speeder, count: 3, interval: 100 } ],
 ];
 
+function WithContext(ctx, params, fun) {
+    ctx.save();
+    try {
+        if (params.translateX != null) {
+            ctx.translate(params.translateX, params.translateY);
+        }
+        if (params.scale != null) {
+            ctx.scale(params.scale, params.scale);
+        }
+        if (params.rotate != null) {
+            ctx.rotate(params.rotate);
+        }
+        fun.call();
+    } finally {
+        ctx.restore();
+    }
+}
+
 function Plan(game) {
     this.game = game
     this.commands = [];
@@ -397,6 +415,8 @@ function SpawnPoint(game, c, r, goal) {
 }
 
 function Monster(x, y, path) {
+    var monster = this;
+
     this.x = x;
     this.y = y;
     this.path = path;
@@ -415,31 +435,24 @@ function Monster(x, y, path) {
     };
 
     this.draw = function(canvas, ctx) {
-        try {
-            ctx.save();
-            ctx.translate(this.x, this.y);
-
-            ctx.beginPath();
-
-            ctx.save();
-            this.drawHP(canvas, ctx);
-            ctx.restore();
-
-            ctx.beginPath();
-            this.drawImpl(canvas, ctx);
-        } finally {
-            ctx.restore();
-        }
+        WithContext(ctx, { translateX: monster.x, translateY: monster.y },
+                    function () {
+                        monster.drawHP(canvas, ctx);
+                        ctx.beginPath();
+                        monster.drawImpl(canvas, ctx);
+                    });
     }
 
     this.drawHP = function(canvas, ctx) {
-        ctx.beginPath();
-        ctx.translate(-halfcell, +halfcell);
-        ctx.moveTo(0, 0);
-        ctx.lineTo(cellsize * (this.hp / this.maxHp), 0);
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = "red";
-        ctx.stroke();
+        WithContext(ctx, { translateX: -halfcell, translateY: halfcell },
+                    function () {
+                        ctx.beginPath();
+                        ctx.moveTo(0, 0);
+                        ctx.lineTo(cellsize * (this.hp / this.maxHp), 0);
+                        ctx.lineWidth = 3;
+                        ctx.strokeStyle = "red";
+                        ctx.stroke();
+                    });
     }
 
     this.setFillStyle = function(ctx) {
@@ -724,36 +737,34 @@ function GunTower(x, y) {
     this.draw = function(canvas, ctx) {
         var tower = this;
 
-        ctx.save();
         if (tower.shootAnimation) {
-            ctx.beginPath();
-            ctx.moveTo(tower.x, tower.y);
-            ctx.lineTo(tower.shootingAt.x, tower.shootingAt.y);
-            ctx.lineWidth = tower.shootAnimation / 2;
-            ctx.strokeStyle = "red";
-            ctx.stroke();
+            WithContext(ctx, {}, function () {
+                ctx.beginPath();
+                ctx.moveTo(tower.x, tower.y);
+                ctx.lineTo(tower.shootingAt.x, tower.shootingAt.y);
+                ctx.lineWidth = tower.shootAnimation / 2;
+                ctx.strokeStyle = "red";
+                ctx.stroke();
+            });
         }
-        ctx.restore();
 
-        ctx.save();
+        WithContext(ctx, { translateX: tower.x, translateY: tower.y,
+                           rotate: tower.angle },
+                    function () {
+                        ctx.beginPath();
+                        ctx.arc(0, 0, halfcell * 0.9, 0, 2*Math.PI);
+                        ctx.fillStyle = "darkgray";
+                        ctx.strokeStyle = "black";
+                        ctx.lineWidth = 2;
+                        ctx.fill();
+                        ctx.stroke();
 
-        ctx.beginPath();
-        ctx.translate(tower.x, tower.y);
-        ctx.rotate(tower.angle);
-        ctx.arc(0, 0, halfcell * 0.9, 0, 2*Math.PI);
-        ctx.fillStyle = "darkgray";
-        ctx.strokeStyle = "black";
-        ctx.lineWidth = 2;
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.lineTo(0, halfcell * 1.5);
-        ctx.lineWidth = 5;
-        ctx.stroke();
-
-        ctx.restore();
+                        ctx.beginPath();
+                        ctx.moveTo(0, 0);
+                        ctx.lineTo(0, halfcell * 1.5);
+                        ctx.lineWidth = 5;
+                        ctx.stroke();
+                    });
     }
 
     return this;
@@ -780,40 +791,37 @@ function SlowTower(x, y) {
     this.draw = function(canvas, ctx) {
         var tower = this;
 
-        ctx.save();
         if (tower.shootAnimation) {
-            ctx.beginPath();
-            ctx.moveTo(tower.x, tower.y);
-            ctx.lineTo(tower.shootingAt.x, tower.shootingAt.y);
-            ctx.lineWidth = tower.shootAnimation * 5;
-            ctx.strokeStyle = "lightblue";
-            ctx.stroke();
+            WithContext(ctx, {}, function () {
+                ctx.beginPath();
+                ctx.moveTo(tower.x, tower.y);
+                ctx.lineTo(tower.shootingAt.x, tower.shootingAt.y);
+                ctx.lineWidth = tower.shootAnimation * 5;
+                ctx.strokeStyle = "lightblue";
+                ctx.stroke();
+            });
         }
 
-        ctx.restore();
+        WithContext(ctx, { translateX: tower.x, translateY: tower.y,
+                           rotate: tower.angle },
+                    function () {
+                        ctx.beginPath();
+                        ctx.arc(0, 0, halfcell * 0.9, 0, 2*Math.PI);
+                        ctx.fillStyle = "darkgray";
+                        ctx.strokeStyle = "black";
+                        ctx.lineWidth = 2;
+                        ctx.fill();
+                        ctx.stroke();
 
-        ctx.save();
-
-        ctx.beginPath();
-        ctx.translate(tower.x, tower.y);
-        ctx.rotate(tower.angle);
-        ctx.arc(0, 0, halfcell * 0.9, 0, 2*Math.PI);
-        ctx.fillStyle = "darkgray";
-        ctx.strokeStyle = "black";
-        ctx.lineWidth = 2;
-        ctx.fill();
-        ctx.stroke();
-
-        ctx.beginPath();
-        ctx.moveTo(halfcell * 0.1, 0);
-        ctx.lineTo(halfcell * 0.4, halfcell * 1.2);
-        ctx.lineTo(halfcell * -0.4, halfcell * 1.2);
-        ctx.lineTo(halfcell * -0.1, 0);
-        ctx.fillStyle = "black";
-        ctx.closePath();
-        ctx.fill();
-
-        ctx.restore();
+                        ctx.beginPath();
+                        ctx.moveTo(halfcell * 0.1, 0);
+                        ctx.lineTo(halfcell * 0.4, halfcell * 1.2);
+                        ctx.lineTo(halfcell * -0.4, halfcell * 1.2);
+                        ctx.lineTo(halfcell * -0.1, 0);
+                        ctx.fillStyle = "black";
+                        ctx.closePath();
+                        ctx.fill();
+                    });
     }
     
     return this;
@@ -867,54 +875,63 @@ function PulseTower(x, y) {
 
     this.draw = function(canvas, ctx) {
         var tower = this;
-        ctx.save();
-        ctx.translate(tower.x, tower.y);
+        WithContext(ctx, { translateX: tower.x, translateY: tower.y,
+                           rotate: tower.angle },
+                    function () {
+                        // Outer turret
+                        ctx.beginPath();
+                        ctx.arc(0, 0, halfcell * 0.9, 0, 2*Math.PI);
+                        ctx.fillStyle = "orange";
+                        ctx.strokeStyle = "black";
+                        ctx.lineWidth = 2;
+                        ctx.fill();
+                        ctx.stroke();
 
-        ctx.beginPath();
-        ctx.rotate(tower.angle);
-        ctx.arc(0, 0, halfcell * 0.9, 0, 2*Math.PI);
-        ctx.fillStyle = "orange";
-        ctx.strokeStyle = "black";
-        ctx.lineWidth = 2;
-        ctx.fill();
-        ctx.stroke();
-        
-        ctx.beginPath();
-        ctx.arc(0, 0, halfcell * 0.5, 0, 2*Math.PI);
-        ctx.fillStyle = "black";
-        ctx.lineWidth = 1;
-        ctx.fill();
+                        // Inner turrent
+                        ctx.beginPath();
+                        ctx.arc(0, 0, halfcell * 0.5, 0, 2*Math.PI);
+                        ctx.fillStyle = "black";
+                        ctx.lineWidth = 1;
+                        ctx.fill();
 
-        ctx.save();
-        for (var i = 0; i < 3; ++i) {
-            ctx.beginPath();
-            ctx.moveTo(0, 0);
-            ctx.lineTo(0, halfcell * 0.75);
-            ctx.rotate(Math.PI * 2 / 3);
-            ctx.lineWidth = 5;
-            ctx.stroke();
-        }
-        ctx.restore();
-        
-        ctx.beginPath();
-        
-        if (tower.shootAnimation) {
-            var r = cellsize +
-                (tower.range - cellsize) * (5 - tower.shootAnimation) / 5;
-            ctx.arc(0, 0, r, 0, 2*Math.PI);
-        } else if (tower.idleAnimation && !tower.cooldown) {
-            ctx.arc(0, 0, (halfcell - tower.idleAnimation) / 2, 0, 2*Math.PI);
-        }
+                        // Little spars on the inner turrnet
+                        ctx.save();
+                        for (var i = 0; i < 3; ++i) {
+                            ctx.beginPath();
+                            ctx.moveTo(0, 0);
+                            ctx.lineTo(0, halfcell * 0.75);
+                            ctx.rotate(Math.PI * 2 / 3);
+                            ctx.lineWidth = 5;
+                            ctx.stroke();
+                        }
+                        ctx.restore();
 
-        ctx.strokeStyle = "steelblue";
-        ctx.lineWidth = 4;
-        ctx.stroke();
+                        // The pulse
+                        ctx.beginPath();
 
-        ctx.strokeStyle = "white";
-        ctx.lineWidth = 1;
-        ctx.stroke();
+                        if (tower.shootAnimation) {
+                            // Shooting: expanding rapidly from zero
+                            // all the way to max range.
+                            var r = cellsize +
+                                (tower.range - cellsize) *
+                                (5 - tower.shootAnimation) / 5;
+                            ctx.arc(0, 0, r, 0, 2*Math.PI);
+                        } else if (tower.idleAnimation && !tower.cooldown) {
+                            // Idling; oscillate inside the turret
+                            ctx.arc(0, 0, (halfcell - tower.idleAnimation) / 2,
+                                    0, 2*Math.PI);
+                        }
 
-        ctx.restore();
+                        // Two strokes of different widths to add a bit of a
+                        // depth effect.
+                        ctx.strokeStyle = "steelblue";
+                        ctx.lineWidth = 4;
+                        ctx.stroke();
+
+                        ctx.strokeStyle = "white";
+                        ctx.lineWidth = 1;
+                        ctx.stroke();
+                    });
     }
 
     return this;
@@ -922,6 +939,7 @@ function PulseTower(x, y) {
 
 function MissileTower(x, y) {
     Tower.call(this, x, y);
+    var tower = this;
 
     this.background = 11;
     this.maxRange = cellsize * 5.0;
@@ -968,7 +986,6 @@ function MissileTower(x, y) {
     }
     
     this.finishExplosion = function(game) {
-        var tower = this;
         _(game.monsters).each(function (monster) {
             var d = distance(tower.shootingAt, monster);
             if (d < tower.explosionRange) {
@@ -983,47 +1000,43 @@ function MissileTower(x, y) {
     }
 
     this.draw = function(canvas, ctx) {
-        var tower = this;
+        WithContext(ctx, { translateX: tower.x, translateY: tower.y,
+                           scale: halfcell / 10,
+                           rotate: tower.angle },
+                    function() {
+                        ctx.beginPath();
 
-        ctx.save();
+                        // Right side of turret 
+                        ctx.arc(-2, 0, 7, 0.5 * Math.PI, 1.5*Math.PI);
+                        ctx.fillStyle = "darkgray";
+                        ctx.strokeStyle = "black";
+                        ctx.lineWidth = 1;
+                        ctx.fill();
+                        ctx.stroke();
 
-        ctx.beginPath();
-        ctx.translate(tower.x, tower.y);
-        ctx.rotate(tower.angle);
-        ctx.scale(halfcell / 10, halfcell / 10);
+                        // Left side of turret 
+                        ctx.save();
+                        ctx.beginPath();
+                        ctx.rotate(1 * Math.PI);
+                        ctx.arc(-2, 0, 7, 0.5 * Math.PI, 1.5*Math.PI);
+                        ctx.fill();
+                        ctx.stroke();
+                        ctx.restore();
 
-        // Right side of turret 
-        ctx.arc(-2, 0, 7, 0.5 * Math.PI, 1.5*Math.PI);
-        ctx.fillStyle = "darkgray";
-        ctx.strokeStyle = "black";
-        ctx.lineWidth = 1;
-        ctx.fill();
-        ctx.stroke();
-
-        // Left side of turret 
-        ctx.save();
-        ctx.beginPath();
-        ctx.rotate(1 * Math.PI);
-        ctx.arc(-2, 0, 7, 0.5 * Math.PI, 1.5*Math.PI);
-        ctx.fill();
-        ctx.stroke();
-        ctx.restore();
-
-        // A launch strip in a darker color in between
-        ctx.beginPath();
-        ctx.moveTo(-2, -7);
-        ctx.lineTo(-2, 7);
-        ctx.lineTo(2, 7);
-        ctx.lineTo(2, -7);
-        ctx.closePath();
-        ctx.fillStyle = '#3D3D5C';
-        ctx.fill();
-        ctx.restore();
+                        // A launch strip in a darker color in between
+                        ctx.beginPath();
+                        ctx.moveTo(-2, -7);
+                        ctx.lineTo(-2, 7);
+                        ctx.lineTo(2, 7);
+                        ctx.lineTo(2, -7);
+                        ctx.closePath();
+                        ctx.fillStyle = '#3D3D5C';
+                        ctx.fill();
+                    });
 
         // Finally, draw the missile, either on the launch pad, in air
         // or having exploded.
         if (tower.shootAnimation) {
-            ctx.beginPath();
             var dx = tower.shootingAt.x - tower.x;
             var dy = tower.shootingAt.y - tower.y;
             var x = tower.x + dx * (10 - tower.shootAnimation) / 10;
@@ -1044,76 +1057,74 @@ function MissileTower(x, y) {
     }
 
     this.drawMissile = function(ctx, x, y, flames) {
-        ctx.save();
-        ctx.translate(x, y);
-        ctx.rotate(this.angle);
-        ctx.scale(halfcell / 10, halfcell / 10);
+        WithContext(ctx, { translateX: x, translateY: y,
+                           scale: halfcell / 10,
+                           rotate: tower.angle },
+                    function () {
+                        // Missile
+                        ctx.beginPath();
+                        ctx.moveTo(2, -4);
+                        ctx.lineTo(2, 9);
+                        ctx.lineTo(0, 13);
+                        ctx.lineTo(-2, 9);
+                        ctx.lineTo(-2, -4);
+                        ctx.closePath();
+                        ctx.fillStyle = "black";
+                        ctx.fill();
+                        ctx.strokeStyle = "white";
+                        ctx.lineWidth = 0.5;        
+                        ctx.stroke();
 
-        // Missile
-        ctx.beginPath();
-        ctx.moveTo(2, -4);
-        ctx.lineTo(2, 9);
-        ctx.lineTo(0, 13);
-        ctx.lineTo(-2, 9);
-        ctx.lineTo(-2, -4);
-        ctx.closePath();
-        ctx.fillStyle = "black";
-        ctx.fill();
-        ctx.strokeStyle = "white";
-        ctx.lineWidth = 0.5;        
-        ctx.stroke();
-
-        if (this.shootAnimation) {
-            // Exhaust plumes.
-            ctx.beginPath();
-            ctx.moveTo(2, -4);
-            ctx.lineTo(1, -7);
-            ctx.lineTo(0, -8 - (10 - this.shootAnimation));
-            ctx.lineTo(-1, -7);
-            ctx.lineTo(-2, -4);
-            ctx.closePath();
-            ctx.fillStyle = "orange";
-            ctx.fill();
-        } else {
-            // Blinking go-faster stripes, as demanded by the 9 years old
-            // graphics director.
-            ctx.beginPath();
-            ctx.moveTo(0, -2);
-            ctx.lineTo(0, 6);
-            ctx.lineWidth = 1;
-            if (this.flash) {
-                ctx.strokeStyle = '#ff5555';
-            } else {
-                ctx.strokeStyle = 'white';
-            }
-            ctx.stroke();
-        }
-        ctx.restore();
+                        if (tower.shootAnimation) {
+                            // Exhaust plumes.
+                            ctx.beginPath();
+                            ctx.moveTo(2, -4);
+                            ctx.lineTo(1, -7);
+                            ctx.lineTo(0, -8 - (10 - tower.shootAnimation));
+                            ctx.lineTo(-1, -7);
+                            ctx.lineTo(-2, -4);
+                            ctx.closePath();
+                            ctx.fillStyle = "orange";
+                            ctx.fill();
+                        } else {
+                            // Blinking go-faster stripes, as demanded
+                            // by the 9 years old graphics director.
+                            ctx.beginPath();
+                            ctx.moveTo(0, -2);
+                            ctx.lineTo(0, 6);
+                            ctx.lineWidth = 1;
+                            if (tower.flash) {
+                                ctx.strokeStyle = '#ff5555';
+                            } else {
+                                ctx.strokeStyle = 'white';
+                            }
+                            ctx.stroke();
+                        }
+                    });
     }
     
     return this;
 }
 
 function drawMap(canvas, ctx) {
-    ctx.save();
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    WithContext(ctx, {}, function() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    for (var r = 0; r < rows; ++r) {
-        for (var c = 0; c < cols; ++c) {
-            var colors = { 0: "darkgreen",
-                           2: "red",
-                           3: "lightblue",
-                           10: "yellow",
-                           11: "lightgray",
-                           12: "olive",
-                         }
-            ctx.fillStyle=colors[game.tiles[r][c]];
-            ctx.fillRect(c * cellsize - halfcell, r * cellsize - halfcell,
-                         cellsize, cellsize);
+        for (var r = 0; r < rows; ++r) {
+            for (var c = 0; c < cols; ++c) {
+                var colors = { 0: "darkgreen",
+                               2: "red",
+                               3: "lightblue",
+                               10: "yellow",
+                               11: "lightgray",
+                               12: "olive",
+                             }
+                ctx.fillStyle=colors[game.tiles[r][c]];
+                ctx.fillRect(c * cellsize - halfcell, r * cellsize - halfcell,
+                             cellsize, cellsize);
+            }
         }
-    }
-
-    ctx.restore();
+    });
 }
 
 function clamp(value, min, max) {
@@ -1318,6 +1329,7 @@ function init(initialPlan) {
             game.plan.addCommand(cmd);
         });
     } else {
+        game.plan.addCommand('build missile 11 5');
         game.plan.addCommand('build gun 8 4');
         game.plan.addCommand('build pulse 8 4');
         game.plan.addCommand('build gun 10 5');
@@ -1344,11 +1356,10 @@ function init(initialPlan) {
 
         function updateAndDraw() {
             _(speed).times(function() { game.update() });
-            // game.update();
-            ctx.save();
-            ctx.translate(halfcell, halfcell);
-            game.draw(canvas, ctx);
-            ctx.restore();
+            WithContext(ctx, { translateX: halfcell, translateY: halfcell },
+                        function () {
+                            game.draw(canvas, ctx);
+                        });
         };
         game.init(updateAndDraw);
         game.start(50);
