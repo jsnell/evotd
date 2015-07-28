@@ -516,7 +516,7 @@ function BigWalker(x, y, path, waveFactor) {
 function Tank(x, y, path, waveFactor) {
     Monster.call(this, x, y, path);
 
-    this.hp = this.maxHp = 1000 * waveFactor;
+    this.hp = this.maxHp = 2000 * waveFactor;
     this.reward = 10;
     this.speed = 0.5;
 
@@ -558,8 +558,8 @@ function Tank(x, y, path, waveFactor) {
 function Speeder(x, y, path, waveFactor) {
     Monster.call(this, x, y, path);
 
-    this.hp = this.maxHp = 100 * waveFactor;
-    this.reward = 10;
+    this.hp = this.maxHp = 150 * waveFactor;
+    this.reward = 5;
     this.speed = 5.0;
 
     this.drawImpl = function(canvas, ctx) {
@@ -598,8 +598,8 @@ function Flier(x, y, path, waveFactor) {
 
     // Just head straight to the final path node
     this.path = [path[path.length - 1]];
-    this.hp = this.maxHp = 30 * waveFactor;
-    this.reward = 10;
+    this.hp = this.maxHp = 90 * waveFactor;
+    this.reward = 3;
     this.speed = 2.0;
     this.rotorAngle = 0;
 
@@ -782,7 +782,7 @@ function SlowTower(x, y) {
 
     this.background = 12;
     this.range = cellsize * 1.75;
-    this.cost = 10;
+    this.cost = 11;
     this.turnSpeed = 0.15;
 
     this.beginShoot = function(game) {
