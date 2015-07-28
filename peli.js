@@ -202,11 +202,11 @@ function Game() {
         }
         this.plan.draw();
         drawMap(canvas, ctx);
-        _(this.monsters).each(function (monster) {
-            monster.draw(canvas, ctx);
-        });
         _(this.towers).each(function (tower) {
             tower.draw(canvas, ctx);
+        });
+        _(this.monsters).each(function (monster) {
+            monster.draw(canvas, ctx);
         });
     };
 
