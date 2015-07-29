@@ -72,6 +72,9 @@ function Plan(game) {
             case 'missile':
                 type = MissileTower;
                 break;
+            case 'laser':
+                type = LaserTower;
+                break;
             default:
                 throw "Unknown tower type '" + type + "'";
                 break;
@@ -1190,6 +1193,93 @@ function MissileTower(x, y) {
     return this;
 }
 
+function LaserTower(x, y) {
+    Tower.call(this, x, y);
+    var tower = this;
+
+    this.background = 13;
+    this.range = cellsize * 2.5;
+    this.cost = 85;
+    this.turnSpeed = 0.05;
+
+    this.beginShoot = function(game) {
+        this.shootAnimation = 10;
+        this.shootingAt = {
+            x: this.target.x,
+            y: this.target.y,
+        };
+        this.cooldown = 100;
+        this.target.damage(game, 500);
+    }
+
+    this.draw = function(canvas, ctx) {
+        if (tower.shootAnimation) {
+            WithContext(ctx, {}, function () {
+                ctx.beginPath();
+                ctx.moveTo(tower.x, tower.y);
+                ctx.lineTo(tower.shootingAt.x, tower.shootingAt.y);
+                ctx.lineWidth = tower.shootAnimation / 2;
+                ctx.strokeStyle = "#22ee22";
+                ctx.stroke();
+
+                ctx.lineWidth = tower.shootAnimation / 4;
+                ctx.strokeStyle = "white";
+                ctx.stroke();
+            });
+        }
+
+        WithContext(ctx, { translateX: tower.x, translateY: tower.y,
+                           scale: halfcell / 10 },
+                    function () {
+                        ctx.rotate(tower.angle);
+
+                        ctx.beginPath();
+                        ctx.moveTo(-1, 0);
+                        ctx.lineTo(-1, 7);
+                        ctx.lineTo(1, 7);
+                        ctx.lineTo(1, 0);
+                        ctx.closePath();
+                        ctx.lineWidth = 0.5;
+                        ctx.strokeStyle = "red";
+                        ctx.fillStyle = "black";
+                        ctx.fill();
+                        if (!tower.cooldown) {
+                            ctx.stroke();
+                        }
+
+                        ctx.beginPath();
+                        ctx.moveTo(-4, -2);
+                        ctx.lineTo(-4, 5);
+                        ctx.moveTo(4, -2);
+                        ctx.lineTo(4, 5);
+                        ctx.lineWidth = 1;
+                        ctx.strokeStyle = "black";
+                        ctx.fillStyle = "black";
+                        ctx.fill();
+                        ctx.stroke();
+                        
+                        ctx.beginPath();
+                        ctx.moveTo(-5, 0);
+                        ctx.lineTo(-6, -2);
+                        ctx.lineTo(-6, -4);
+                        ctx.lineTo(-5, -5);
+                        ctx.lineTo(5, -5);
+                        ctx.lineTo(6, -4);
+                        ctx.lineTo(6, -2);
+                        ctx.lineTo(5, 0);
+                        ctx.closePath();
+                        ctx.lineWidth = 1;
+                        ctx.strokeStyle = "black";
+                        ctx.fillStyle = "red";
+                        ctx.fill();
+                        ctx.stroke();
+                        
+                    });
+    }
+
+    return this;
+}
+
 function drawMap(canvas, ctx) {
     WithContext(ctx, {}, function() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -1202,6 +1292,7 @@ function drawMap(canvas, ctx) {
                                10: "yellow",
                                11: "lightgray",
                                12: "olive",
+                               13: "gray",
                              }
                 ctx.fillStyle=colors[game.tiles[r][c]];
                 ctx.fillRect(c * cellsize - halfcell, r * cellsize - halfcell,
@@ -1362,7 +1453,7 @@ function Program() {
             }
             if (inst.type == BUILD_REL) {
                 var building = "";
-                switch(inst.c % 4) {
+                switch(inst.c % 5) {
                 case 0:
                     building = "gun";
                     break;
@@ -1374,6 +1465,9 @@ function Program() {
                     break;
                 case 3:
                     building = "missile";
+                    break;
+                case 4:
+                    building = "laser";
                     break;
                 default:
                     throw "Bad building type";
