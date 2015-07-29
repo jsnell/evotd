@@ -1605,6 +1605,7 @@ function init(initialPlan) {
     game.addSpawnPoint(10, 0, [10, 11]);
     game.addSpawnPoint(10, 0, [10, 11]);
     
+    $('#plan').empty();
     if (initialPlan) {
         _(initialPlan).each(function(cmd) {
             game.plan.addCommand(cmd);
