@@ -225,7 +225,9 @@ function Plan(game) {
         }
         this.setCommandClass(this.commands[this.index]);
         this.index++;
-        this.setCommandClass(this.commands[this.index]);
+        if (this.index < this.commands.length) {
+            this.setCommandClass(this.commands[this.index]);
+        }
         return true;
     };
 
