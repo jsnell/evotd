@@ -1626,6 +1626,38 @@ function Program() {
     }
 }
 
+function menuClickHandler(title, pageX, pageY, funs) {
+    var menu = $("#menu");
+    menu.hide();
+    menu.empty();
+    var head = $("<div/>", {"style": "width: 100%"});
+    head.append($("<div/>", {
+        style: "white-space: nowrap",
+        text: title
+    }));
+    menu.append(head);
+    
+    _(funs).each(function (record) {
+        var button = $('<button/>', { text: record.title });
+        button.on('click', function() {
+            menu.hide();
+            record.fun();
+        });
+        menu.append($("<div/>", { "class": "menu-item"}).append(button));
+    });
+
+    var cancel = $('<button/>', { text: "Cancel" });
+    menu.append($("<div/>", { "class": "menu-item"}).append(cancel));
+    cancel.on('click', function () { menu.hide(); });
+
+    menu.each(function (index, elem) {
+        elem.style.left = (pageX - 15) + "px";
+        elem.style.top = (pageY - 15) + "px";
+    });
+
+    menu.show();
+}
+
 function mapClickHandler(event) {
     $("menu").hide();
     game.selectedLocation = null;
