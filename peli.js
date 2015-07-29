@@ -405,6 +405,11 @@ function Game() {
         });
         _(this.towers).each(function (tower) {
             tower.draw(canvas, ctx);
+            if (game.selectedLocation &&
+                tower.column == game.selectedLocation.column &&
+                tower.row == game.selectedLocation.row) {
+                tower.drawRange(canvas, ctx);
+            }
         });
         _(this.monsters).each(function (monster) {
             monster.draw(canvas, ctx);
@@ -425,6 +430,8 @@ function Game() {
             }
             return false;
         }
+        tower.column = c;
+        tower.row = r;
         this.tiles[r][c] = tower.background;
         try {
             _(this.spawnPoints).each(function (sp) {
@@ -823,10 +830,34 @@ function Flier(x, y, path, waveFactor) {
 }
 
 function Tower(x, y) {
+    var tower = this;
     this.x = x;
     this.y = y;
     this.angle = 0;
 
+    this.drawRange = function(canvas, ctx) {
+        WithContext(ctx, { translateX: tower.x, translateY: tower.y },
+                    function () {
+                        ctx.strokeStyle = "red";
+                        ctx.lineWidth = 2;
+                        if (tower.range) {
+                            ctx.beginPath();
+                            ctx.arc(0, 0, tower.range, 0, 2*Math.PI);
+                            ctx.stroke();
+                        }
+                        if (tower.minRange) {
+                            ctx.beginPath();
+                            ctx.arc(0, 0, tower.minRange, 0, 2*Math.PI);
+                            ctx.stroke();
+                        }
+                        if (tower.maxRange) {
+                            ctx.beginPath();
+                            ctx.arc(0, 0, tower.maxRange, 0, 2*Math.PI);
+                            ctx.stroke();
+                        }
+                    });
+    }
+    
     this.update = function(game) {
         var tower = this;
         tower.beforeUpdate(game);
@@ -1595,6 +1626,23 @@ function Program() {
     }
 }
 
+function mapClickHandler(event) {
+    $("menu").hide();
+    game.selectedLocation = null;
+    var position = $("#main")[0].getBoundingClientRect();
+    var x = event.clientX - position.left;
+    var y = event.clientY - position.top;
+    var row = as_row(y);
+    var column = as_column(x);
+    game.selectedLocation = { row: row, column: column };
+    if (game.tiles[row][column] == 0) {
+        console.log("can build");
+    } else {
+        console.log("can't build");
+    }
+
+}
+
 var speed = 1;
 var game;
 function init(initialPlan) {
@@ -1637,7 +1685,11 @@ function init(initialPlan) {
         cellsize = Math.floor(Math.min(canvas.width / cols,
                                        canvas.height / rows));
         halfcell = cellsize / 2;
-
+        
+        $(canvas).on('click', function (event) {
+            mapClickHandler(event);
+        });
+        
         function updateAndDraw() {
             _(speed).times(function() { game.update() });
             WithContext(ctx, { translateX: halfcell, translateY: halfcell },
