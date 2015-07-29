@@ -292,6 +292,7 @@ function Game() {
     this.waveIndex = 0;
     this.wave = null;
     this.gameOver = false;
+    this.win = false;
     this.score = 0;
 
     for (var r = 0; r < rows; r++) {
@@ -328,6 +329,14 @@ function Game() {
             this.updateStatus();
         } while (this.plan.maybeExecuteNext());
         this.score += this.waveIndex * 100;
+        if (this.waveIndex == waves.length - 1) {
+            this.gameOver = true;
+            this.win = true;
+            if (this.onGameOver) {
+                this.onGameOver();
+            }
+            return;
+        }
         var wave = waves[this.waveIndex++ % waves.length];
         this.wave = wave;
         _(this.spawnPoints).each(function (sp, index) {
@@ -373,8 +382,9 @@ function Game() {
             ctx.lineWidth = 2;
             ctx.fillStyle = "red";
             ctx.strokeStyle = "black";
-            ctx.fillText("GAME OVER", 20, 33);
-            ctx.strokeText("GAME OVER", 20, 33);
+            var text = this.win ? "YOU WIN" : "GAME OVER";
+            ctx.fillText(text, 20, 33);
+            ctx.strokeText(text, 20, 33);
             ctx.restore();
             return;
         }
