@@ -1677,9 +1677,30 @@ function mapClickHandler(event) {
     var column = as_column(x);
     game.selectedLocation = { row: row, column: column };
     if (game.tiles[row][column] == 0) {
-        console.log("can build");
-    } else {
-        console.log("can't build");
+        funs = []
+        var loc = column + " " + row;
+        funs.push({
+            title: "Gun Tower ($5)",
+            fun: function() { game.plan.addCommand("build gun " + loc) },
+        });
+        funs.push({
+            title: "Slow Tower ($11)",
+            fun: function() { game.plan.addCommand("build slow " + loc) },
+        });
+        funs.push({
+            title: "Missile Tower ($20)",
+            fun: function() { game.plan.addCommand("build missile " + loc) },
+        });
+        funs.push({
+            title: "Pulse Tower ($80)",
+            fun: function() { game.plan.addCommand("build pulse " + loc) },
+        });
+        funs.push({
+            title: "Laser Tower ($85)",
+            fun: function() { game.plan.addCommand("build laser " + loc) },
+        });
+        menuClickHandler("Queue build", event.pageX, event.pageY,
+                         funs);
     }
 
 }
