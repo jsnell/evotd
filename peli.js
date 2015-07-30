@@ -188,7 +188,7 @@ function Plan(game) {
                 plan.moveBefore(plan.dragRecord, record);
                 return true;
             }).on('dragover', function (event) {
-                if (record.skipped || record.done) {
+                if (record.done) {
                     return false;
                 }
                 event.preventDefault();
@@ -223,6 +223,7 @@ function Plan(game) {
             current.done = true;
         } catch (e) {
             current.skipped = true;
+            current.done = true;
         }
         this.setCommandClass(current);
         this.index++;
@@ -250,14 +251,28 @@ function Plan(game) {
         });
     }
     
+    this.dequeue = function(record) {
+        // Can't remove commands that have already been executed.
+        if (record.done) {
+            return;
+        }
+
+        $(record.elem).detach();
+        var commands = plan.commands;
+        var recordIndex = commands.indexOf(record);
+        commands.splice(recordIndex, 1);
+        if (recordIndex < commands.length) {
+            plan.setCommandClass(commands[recordIndex]);
+        }
+    }
+
     this.moveBefore = function(record, beforeRecord) {
         var prev;
         var next;
         var commands = plan.commands;
 
         // Can't rearrange commands that have already been executed.
-        if (record.done || record.skipped ||
-            beforeRecord.done || beforeRecord.skipped) {
+        if (record.done || beforeRecord.done) {
             return;
         }
 
@@ -276,14 +291,20 @@ function Plan(game) {
 
     this.setCommandClass = function(record) {
         var classes = ['cmd'];
-        if (record.done) {
-            classes.push('cmd-done');
-        } else if (record.skipped) {
+        if (record.skipped) {
             classes.push('cmd-skipped');
+        } else if (record.done) {
+            classes.push('cmd-done');
         } else if (record === plan.commands[plan.index]) {
             classes.push('cmd-current');
         }
         record.elem.className = classes.join(' ');
+    }
+
+    this.queuedAt = function(column, row) {
+        return _(plan.commands).filter(function(record) {
+            return column == record.col && row == record.row && !record.done;
+        });
     }
     
     return this;
@@ -1667,6 +1688,46 @@ function menuClickHandler(title, pageX, pageY, funs) {
     menu.show();
 }
 
+function showQueueBuildMenu(event) {
+    funs = []
+    var loc = column + " " + row;
+    funs.push({
+        title: "Gun Tower ($5)",
+        fun: function() { game.plan.addCommand("build gun " + loc) },
+    });
+    funs.push({
+        title: "Slow Tower ($11)",
+        fun: function() { game.plan.addCommand("build slow " + loc) },
+    });
+    funs.push({
+        title: "Missile Tower ($20)",
+        fun: function() { game.plan.addCommand("build missile " + loc) },
+    });
+    funs.push({
+        title: "Pulse Tower ($80)",
+        fun: function() { game.plan.addCommand("build pulse " + loc) },
+    });
+    funs.push({
+        title: "Laser Tower ($85)",
+        fun: function() { game.plan.addCommand("build laser " + loc) },
+    });
+    menuClickHandler("Queue command", event.pageX, event.pageY,
+                     funs);
+}
+
+function showDequeueMenu(event, records) {
+    funs = []
+    var loc = column + " " + row;
+    _(records).each(function(record) {
+        funs.push({
+            title: "Deque '" + record.command + "'",
+            fun: function() { game.plan.dequeue(record) },
+        });
+    });
+    menuClickHandler("Dequeue command", event.pageX, event.pageY,
+                     funs);
+}
+
 function mapClickHandler(event) {
     $("menu").hide();
     game.selectedLocation = null;
@@ -1677,31 +1738,15 @@ function mapClickHandler(event) {
     var column = as_column(x);
     game.selectedLocation = { row: row, column: column };
     if (game.tiles[row][column] == 0) {
-        funs = []
-        var loc = column + " " + row;
-        funs.push({
-            title: "Gun Tower ($5)",
-            fun: function() { game.plan.addCommand("build gun " + loc) },
-        });
-        funs.push({
-            title: "Slow Tower ($11)",
-            fun: function() { game.plan.addCommand("build slow " + loc) },
-        });
-        funs.push({
-            title: "Missile Tower ($20)",
-            fun: function() { game.plan.addCommand("build missile " + loc) },
-        });
-        funs.push({
-            title: "Pulse Tower ($80)",
-            fun: function() { game.plan.addCommand("build pulse " + loc) },
-        });
-        funs.push({
-            title: "Laser Tower ($85)",
-            fun: function() { game.plan.addCommand("build laser " + loc) },
-        });
-        menuClickHandler("Queue build", event.pageX, event.pageY,
-                         funs);
+        var records = game.plan.queuedAt(column, row);
+        console.log(records);
+        if (records.length) {
+            showDequeueMenu(event, records);
+        } else {
+            showQueueBuildMenu(event);
+        }
     }
+}
 
 }
 
