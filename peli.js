@@ -1063,7 +1063,7 @@ function PulseTower(x, y) {
     Tower.call(this, x, y);
 
     this.background = 11;
-    this.range = cellsize * 2;
+    this.range = cellsize * 2.1;
     this.cost = 80;
     this.turnSpeed = 0.3;
     
