@@ -56,6 +56,10 @@ button {
     vertical-align: top;
 }
 
+input {
+    vertical-align: top;
+}
+
 div.menu {
     position: absolute;
     padding: 2px;

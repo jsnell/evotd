@@ -12,10 +12,9 @@
     <div><span id="status"></span></div>
   </div>
   <div>
-    <button onclick="game.pause();">Pause</button>
-    <button onclick="game.start(50);">Slow</button>
-    <button onclick="game.start(1);">Fast</button>
-    <button onclick="game.pause(); init();">Reset</button>
+    <span style="vertical-align: top">Speed: <input id='speed' min="1" max="100" value="10" type="range" onchange="ui.changeSpeed()"></input></span>
+    <button id='pause' onclick="ui.pause();">Pause</button>
+    <button id='reset' onclick="ui.reset();">Reset</button>
     <div style="display: inline-block">
       <div id="currentgen-stats"></div>
       <canvas id="currentgen-graph" width=250 height=100></canvas>

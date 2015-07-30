@@ -1748,12 +1748,82 @@ function mapClickHandler(event) {
     }
 }
 
+function UserInterface(game) {
+    var ui = this;
+    ui.game = game;
+    ui.paused = false;
+    ui.speed = 1;
+
+    ui.pause = function() {
+        if (ui.paused) {
+            ui.game.start(50);
+            $('#pause').text("Pause");
+        } else {
+            ui.game.pause();
+            $('#pause').text("Unpause");
+        }
+        ui.paused = !ui.paused;
+    }
+
+    ui.reset = function() {
+        ui.game.pause();
+        init();
+    }
+
+    ui.changeSpeed = function() {
+        var value = parseInt($('#speed').val());
+
+        if (value <= 10) {
+            ui.speed = 1;
+            ui.game.start(500 / ui.speed);
+        } else {
+            ui.speed = Math.pow((value - 10), 2);
+            ui.game.start(50);
+        }
+        
+        console.log(value);
+    }
+
+    ui.init = function(game) {
+        ui.game = game;
+        $('#main').each(function (index, canvas) {
+            if (!canvas.getContext) {
+                return;
+            }
+            var ctx = canvas.getContext("2d");
+
+            cellsize = Math.floor(Math.min(canvas.width / cols,
+                                           canvas.height / rows));
+            halfcell = cellsize / 2;
+            
+            $(canvas).on('click', function (event) {
+                mapClickHandler(event);
+            });
+            
+            function updateAndDraw() {
+                // Run physics N times depending on speed setting
+                _(ui.speed).times(function() { game.update() });
+                // Then draw the last state
+                WithContext(ctx, { translateX: halfcell, translateY: halfcell },
+                            function () {
+                                game.draw(canvas, ctx);
+                            });
+            };
+            game.init(updateAndDraw);
+            game.start(50);
+        });
+    }
 }
 
-var speed = 1;
 var game;
+var ui;
+
 function init(initialPlan) {
+    if (game) {
+        game.pause();
+    }
     game = new Game();
+    
     // Define multiple spawning points in the same location so that we can
     // generate multiple kinds of enemies / timings from a single location
     // in a single wave.
@@ -1770,43 +1840,30 @@ function init(initialPlan) {
     } else {
         game.plan.addCommand('build missile 11 5');
         game.plan.addCommand('build gun 8 4');
+        // game.plan.addCommand('build gun 8 3');
         game.plan.addCommand('build pulse 8 4');
         game.plan.addCommand('build gun 10 5');
-        game.plan.addCommand('build slow 10 6');
+        game.plan.addCommand('build gun 10 6');
         game.plan.addCommand('build gun 10 3');
-        game.plan.addCommand('build gun 10 4');
+        game.plan.addCommand('build slow 10 4');
         game.plan.addCommand('build gun 8 7');
         game.plan.addCommand('build gun 8 8');
         game.plan.addCommand('build gun 9 9');
         game.plan.addCommand('build gun 8 6');
-        game.plan.addCommand('build pulse 10 7');
         game.plan.addCommand('build missile 11 5');
+        game.plan.addCommand('build missile 8 4');
+        game.plan.addCommand('build pulse 10 7');
+        game.plan.addCommand('build slow 11 7');
+        game.plan.addCommand('build gun 11 0');
+        game.plan.addCommand('build gun 11 1');
+        game.plan.addCommand('build gun 11 2');
+        game.plan.addCommand('build pulse 10 9');
     }
 
-    $('#main').each(function (index, canvas) {
-        if (!canvas.getContext) {
-            return;
-        }
-        var ctx = canvas.getContext("2d");
-
-        cellsize = Math.floor(Math.min(canvas.width / cols,
-                                       canvas.height / rows));
-        halfcell = cellsize / 2;
-        
-        $(canvas).on('click', function (event) {
-            mapClickHandler(event);
-        });
-        
-        function updateAndDraw() {
-            _(speed).times(function() { game.update() });
-            WithContext(ctx, { translateX: halfcell, translateY: halfcell },
-                        function () {
-                            game.draw(canvas, ctx);
-                        });
-        };
-        game.init(updateAndDraw);
-        game.start(50);
-    });
+    if (!ui) {
+        ui = new UserInterface(game);
+    }
+    ui.init(game);
     return game;
 }
 
