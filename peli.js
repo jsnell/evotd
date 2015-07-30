@@ -215,18 +215,27 @@ function Plan(game) {
         if (this.index >= this.commands.length) {
             return;
         }
+        var current = this.commands[this.index];
         try {
-            if (!this.commands[this.index].fun(this.game)) {
+            if (!current.fun(this.game)) {
                 return false;
             }
-            this.commands[this.index].done = true;
+            current.done = true;
         } catch (e) {
-            this.commands[this.index].skipped = true;
+            current.skipped = true;
         }
-        this.setCommandClass(this.commands[this.index]);
+        this.setCommandClass(current);
         this.index++;
+
+        current = this.commands[this.index];
         if (this.index < this.commands.length) {
-            this.setCommandClass(this.commands[this.index]);
+            this.setCommandClass(current);
+
+            var offset = $(current.elem).position().top;
+            var plan = $('#plan');
+            if (plan.scrollTop() + plan.height() < offset) {
+                plan.scrollTop(offset);
+            }
         }
         return true;
     };
