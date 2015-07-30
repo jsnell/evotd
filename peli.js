@@ -385,6 +385,7 @@ function Game() {
         var game = this;
         if (this.gameOver) {
             this.pause();
+            return;
         }
         this.monsters = _(this.monsters.filter(function (monster) {
             updateMonster(monster, game);
@@ -1785,6 +1786,9 @@ function UserInterface(game) {
     }
 
     ui.init = function(game) {
+        if (ui.game) {
+            ui.game.pause();
+        }
         ui.game = game;
         $('#main').each(function (index, canvas) {
             if (!canvas.getContext) {
@@ -1802,7 +1806,12 @@ function UserInterface(game) {
             
             function updateAndDraw() {
                 // Run physics N times depending on speed setting
-                _(ui.speed).times(function() { game.update() });
+                for (var i = 0; i < ui.speed; ++i) {
+                    game.update();
+                    if (game.gameover) {
+                        break;
+                    }
+                }                    
                 // Then draw the last state
                 WithContext(ctx, { translateX: halfcell, translateY: halfcell },
                             function () {
