@@ -12,8 +12,9 @@
     <div><span id="status"></span></div>
   </div>
   <div>
-    <span style="vertical-align: top">Speed: <input id='speed' min="1" max="100" value="10" type="range" onchange="ui.changeSpeed()"></input></span>
-    <button id='pause' onclick="ui.pause();">Pause</button>
+    <span style="vertical-align: top">Speed: <input id='speed' min="1" max="6" value="1" type="range" onchange="ui.changeSpeed()"></input></span>
+    <button id='pause' onclick="ui.togglePause();">Pause</button>
+    <button id='restart' onclick="ui.restart();">Restart</button>
     <button id='reset' onclick="ui.reset();">Reset</button>
     <div style="display: inline-block">
       <div id="currentgen-stats"></div>

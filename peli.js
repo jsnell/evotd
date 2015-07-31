@@ -1689,28 +1689,34 @@ function menuClickHandler(title, pageX, pageY, funs) {
     menu.show();
 }
 
-function showQueueBuildMenu(event) {
+function showQueueBuildMenu(event, column, row) {
     funs = []
     var loc = column + " " + row;
+    var makeEffect = function(type) {
+        return function() {
+            game.plan.addCommand("build " + type + " " + loc)
+            ui.redraw();
+        }
+    }
     funs.push({
         title: "Gun Tower ($5)",
-        fun: function() { game.plan.addCommand("build gun " + loc) },
+        fun: makeEffect("gun"),
     });
     funs.push({
         title: "Slow Tower ($11)",
-        fun: function() { game.plan.addCommand("build slow " + loc) },
+        fun: makeEffect("slow"),
     });
     funs.push({
         title: "Missile Tower ($20)",
-        fun: function() { game.plan.addCommand("build missile " + loc) },
+        fun: makeEffect("missile"),
     });
     funs.push({
         title: "Pulse Tower ($80)",
-        fun: function() { game.plan.addCommand("build pulse " + loc) },
+        fun: makeEffect("pulse"),
     });
     funs.push({
         title: "Laser Tower ($85)",
-        fun: function() { game.plan.addCommand("build laser " + loc) },
+        fun: makeEffect("laser"),
     });
     menuClickHandler("Queue command", event.pageX, event.pageY,
                      funs);
@@ -1722,7 +1728,7 @@ function showDequeueMenu(event, records) {
     _(records).each(function(record) {
         funs.push({
             title: "Deque '" + record.command + "'",
-            fun: function() { game.plan.dequeue(record) },
+            fun: function() { game.plan.dequeue(record); ui.redraw(); },
         });
     });
     menuClickHandler("Dequeue command", event.pageX, event.pageY,
@@ -1744,7 +1750,7 @@ function mapClickHandler(event) {
         if (records.length) {
             showDequeueMenu(event, records);
         } else {
-            showQueueBuildMenu(event);
+            showQueueBuildMenu(event, column, row);
         }
     }
 }
@@ -1755,15 +1761,31 @@ function UserInterface(game) {
     ui.paused = false;
     ui.speed = 1;
 
-    ui.pause = function() {
+    ui.togglePause = function() {
         if (ui.paused) {
-            ui.game.start(50);
-            $('#pause').text("Pause");
+            ui.unpause();
         } else {
-            ui.game.pause();
-            $('#pause').text("Unpause");
+            ui.pause();
         }
-        ui.paused = !ui.paused;
+    }
+
+    ui.pause = function() {
+        ui.game.pause();
+        $('#pause').text("Unpause");
+        ui.paused = true;
+    }
+
+    ui.unpause = function() {
+        ui.game.start(50);
+        $('#pause').text("Pause");
+        ui.paused = false;
+    }
+
+    ui.restart = function() {
+        ui.game.pause();
+        init(_(ui.game.plan.commands).map(function(record) {
+            return record.command;
+        }));
     }
 
     ui.reset = function() {
@@ -1773,16 +1795,15 @@ function UserInterface(game) {
 
     ui.changeSpeed = function() {
         var value = parseInt($('#speed').val());
-
-        if (value <= 10) {
-            ui.speed = 1;
-            ui.game.start(500 / ui.speed);
-        } else {
-            ui.speed = Math.pow((value - 10), 2);
-            ui.game.start(50);
-        }
-        
-        console.log(value);
+        var speeds = {
+            1: 1,
+            2: 2,
+            3: 5,
+            4: 100,
+            5: 1000,
+            6: 10000,
+        };
+        ui.speed = speeds[value];
     }
 
     ui.init = function(game) {
@@ -1804,6 +1825,14 @@ function UserInterface(game) {
                 mapClickHandler(event);
             });
             
+            ui.redraw = function() {
+                // Then draw the last state
+                WithContext(ctx, { translateX: halfcell,
+                                   translateY: halfcell },
+                            function () {
+                                ui.game.draw(canvas, ctx);
+                            });
+            };
             function updateAndDraw() {
                 // Run physics N times depending on speed setting
                 for (var i = 0; i < ui.speed; ++i) {
@@ -1811,17 +1840,15 @@ function UserInterface(game) {
                     if (game.gameover) {
                         break;
                     }
-                }                    
-                // Then draw the last state
-                WithContext(ctx, { translateX: halfcell, translateY: halfcell },
-                            function () {
-                                game.draw(canvas, ctx);
-                            });
+                }
+                ui.redraw();
             };
             game.init(updateAndDraw);
-            game.start(50);
+            ui.redraw();
+            ui.pause();
         });
     }
+
 }
 
 var game;
